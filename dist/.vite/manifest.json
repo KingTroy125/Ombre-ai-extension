@@ -1,0 +1,62 @@
+{
+  "../../../../@crx/manifest": {
+    "file": "assets/crx-manifest.js-CfiRJK7P.js",
+    "name": "crx-manifest.js",
+    "src": "../../../../@crx/manifest",
+    "isEntry": true
+  },
+  "_content-script.ts-loader-R3SrEltF.js": {
+    "file": "assets/content-script.ts-loader-R3SrEltF.js",
+    "src": "_content-script.ts-loader-R3SrEltF.js"
+  },
+  "_globals-BSvdTU2l.js": {
+    "file": "assets/globals-BSvdTU2l.js",
+    "name": "globals",
+    "css": [
+      "assets/globals-Df0m0-Bc.css"
+    ]
+  },
+  "_globals-Df0m0-Bc.css": {
+    "file": "assets/globals-Df0m0-Bc.css",
+    "src": "_globals-Df0m0-Bc.css"
+  },
+  "index.html": {
+    "file": "assets/index.html-BXvzlpL5.js",
+    "name": "index.html",
+    "src": "index.html",
+    "isEntry": true,
+    "imports": [
+      "_globals-BSvdTU2l.js"
+    ]
+  },
+  "options.html": {
+    "file": "assets/options.html-Ba0wIxxS.js",
+    "name": "options.html",
+    "src": "options.html",
+    "isEntry": true,
+    "imports": [
+      "options.html"
+    ]
+  },
+  "sidepanel.html": {
+    "file": "assets/sidepanel.html-DLNRbl3V.js",
+    "name": "sidepanel.html",
+    "src": "sidepanel.html",
+    "isEntry": true,
+    "imports": [
+      "sidepanel.html"
+    ]
+  },
+  "src/background/service-worker.ts": {
+    "file": "assets/service-worker.ts-D1C-tLNE.js",
+    "name": "service-worker.ts",
+    "src": "src/background/service-worker.ts",
+    "isEntry": true
+  },
+  "src/content/content-script.ts": {
+    "file": "assets/content-script.ts-BPwPkTNz.js",
+    "name": "content-script.ts",
+    "src": "src/content/content-script.ts",
+    "isEntry": true
+  }
+}
