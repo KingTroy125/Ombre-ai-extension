@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Ombre AI Assistant",
+  "description": "AI assistant browser extension powered by the Toqan API — popup chat, side panel, and page-context Q&A.",
+  "version": "1.0.0",
+  "icons": {
+    "16": "public/icons/icon16.png",
+    "48": "public/icons/icon48.png",
+    "128": "public/icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "public/icons/icon16.png",
+      "48": "public/icons/icon48.png",
+      "128": "public/icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content-script.ts"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "options_page": "options.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "permissions": ["storage", "contextMenus", "activeTab", "sidePanel"],
+  "host_permissions": ["https://api.toqan.ai/*"]
+}

@@ -1,0 +1,106 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+/*
+  Toqan AI — dark-mode-only theme.
+  Base: #111111. Accent: #6c63ff (purple). No light theme is shipped;
+  the extension always renders dark, matching the popup + injected panel.
+*/
+:root,
+.dark {
+  --background: #111111;
+  --foreground: #f2f2f5;
+
+  --card: #17171a;
+  --card-foreground: #f2f2f5;
+
+  --popover: #1c1c20;
+  --popover-foreground: #f2f2f5;
+
+  --primary: #6c63ff;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1e1e22;
+  --secondary-foreground: #e4e4e9;
+
+  --muted: #1a1a1d;
+  --muted-foreground: #8b8b95;
+
+  --accent: #6c63ff;
+  --accent-foreground: #ffffff;
+
+  --destructive: #f2555a;
+  --destructive-foreground: #ffffff;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.09);
+  --ring: #6c63ff;
+
+  --sidebar: #0d0d0f;
+  --sidebar-foreground: #e4e4e9;
+  --sidebar-primary: #6c63ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1a1d;
+  --sidebar-accent-foreground: #f2f2f5;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: #6c63ff;
+
+  --radius: 0.75rem;
+
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Feather-style icon defaults */
+svg.feather {
+  stroke: currentColor;
+  stroke-width: 1.75;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Spring-ish focus ring */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
