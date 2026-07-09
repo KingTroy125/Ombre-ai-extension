@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowDown, Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
 import type { Conversation } from "../lib/types";
 import { useChat } from "../hooks/useChat";
+import { useStickyScroll } from "../hooks/useStickyScroll";
 import { Message, ThinkingBubble } from "./Message";
 import { Input } from "./Input";
 import { useSettings } from "../hooks/useSettings";
@@ -25,30 +26,96 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
     onEnsureConversation,
   });
   const { hasApiKey, loaded } = useSettings();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
+
+  const { containerRef, isPinned, hasUnseenContent, scrollToBottom, anchorToElement, onContentChanged } =
+    useStickyScroll();
 
   const messages = conversation?.messages ?? [];
   const hasMessages = messages.length > 0;
 
+  // Tracks whether the next render was caused by *this tab* sending a
+  // message (turn-anchor it near the top) vs. loading history, switching
+  // conversations, or an incoming reply (just follow sticky-scroll as normal).
+  const pendingAnchorId = useRef<string | null>(null);
+  const lastMessageId = useRef<string | null>(null);
+  const lastConversationId = useRef<string | null>(null);
+
+  const handleSend = (text: string) => {
+    sendMessage(text);
+  };
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length, isThinking]);
+    const conversationChanged = conversation?.id !== lastConversationId.current;
+    lastConversationId.current = conversation?.id ?? null;
+
+    const latest = messages[messages.length - 1];
+    if (!latest || latest.id === lastMessageId.current) return;
+    lastMessageId.current = latest.id;
+
+    if (conversationChanged) {
+      // Switched to a different (possibly pre-existing) conversation — just
+      // land at the bottom of it, no turn-anchoring illusion to maintain.
+      requestAnimationFrame(() => scrollToBottom("auto"));
+      return;
+    }
+
+    const isFreshUserTurn = latest.role === "user";
+    if (isFreshUserTurn) {
+      pendingAnchorId.current = latest.id;
+      // Wait a frame for the new bubble to actually be in the DOM before anchoring it.
+      requestAnimationFrame(() => {
+        const el = containerRef.current?.querySelector<HTMLElement>(`[data-msg-id="${latest.id}"]`);
+        if (el) anchorToElement(el);
+        pendingAnchorId.current = null;
+      });
+    } else {
+      onContentChanged();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, conversation?.id]);
+
+  // The thinking indicator appearing/disappearing is content too — follow
+  // the same sticky rule (only auto-scroll if already pinned).
+  useEffect(() => {
+    onContentChanged();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isThinking]);
 
   return (
     <div className="flex h-full flex-1 flex-col bg-background">
       {hasMessages ? (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="mx-auto flex max-w-2xl flex-col gap-4">
-            {messages.map((m) => (
-              <Message key={m.id} message={m} />
-            ))}
-            {isThinking && <ThinkingBubble note={statusNote} />}
+        <div className="relative flex-1 overflow-hidden">
+          <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+            <div
+              role="log"
+              aria-relevant="additions"
+              aria-busy={isThinking}
+              className="mx-auto flex max-w-2xl flex-col gap-4"
+            >
+              {messages.map((m) => (
+                <div key={m.id} data-msg-id={m.id}>
+                  <Message message={m} />
+                </div>
+              ))}
+              {isThinking && <ThinkingBubble note={statusNote} />}
+            </div>
           </div>
+
+          {!isPinned && (
+            <button
+              onClick={() => scrollToBottom()}
+              className="focus-ring absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground shadow-md transition-transform hover:-translate-y-0.5"
+            >
+              <ArrowDown size={13} className="feather" />
+              {hasUnseenContent ? "New message" : "Jump to latest"}
+              <span className="sr-only">— scroll to bottom of conversation</span>
+            </button>
+          )}
         </div>
       ) : (
         <LandingView
-          onPromptSelect={(prompt) => sendMessage(prompt)}
+          onPromptSelect={(prompt) => handleSend(prompt)}
           page={page}
           setPage={setPage}
           hasApiKey={hasApiKey}
@@ -56,7 +123,7 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
         />
       )}
 
-      <Input onSend={sendMessage} disabled={isThinking} isThinking={isThinking} />
+      <Input onSend={handleSend} disabled={isThinking} isThinking={isThinking} />
     </div>
   );
 }
