@@ -9,28 +9,28 @@
     "file": "assets/content-script.ts-loader-BYcvNobg.js",
     "src": "_content-script.ts-loader-BYcvNobg.js"
   },
-  "_globals-1Ca8YLIA.js": {
-    "file": "assets/globals-1Ca8YLIA.js",
+  "_globals-DGNlleRD.js": {
+    "file": "assets/globals-DGNlleRD.js",
     "name": "globals",
     "css": [
-      "assets/globals-BrI3wI-a.css"
+      "assets/globals-ge7Fdmq3.css"
     ]
   },
-  "_globals-BrI3wI-a.css": {
-    "file": "assets/globals-BrI3wI-a.css",
-    "src": "_globals-BrI3wI-a.css"
+  "_globals-ge7Fdmq3.css": {
+    "file": "assets/globals-ge7Fdmq3.css",
+    "src": "_globals-ge7Fdmq3.css"
   },
   "index.html": {
-    "file": "assets/index.html-DowMK19N.js",
+    "file": "assets/index.html-BCssO8QP.js",
     "name": "index.html",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_globals-1Ca8YLIA.js"
+      "_globals-DGNlleRD.js"
     ]
   },
   "options.html": {
-    "file": "assets/options.html-Dq2OAovO.js",
+    "file": "assets/options.html-Ql7PYl3y.js",
     "name": "options.html",
     "src": "options.html",
     "isEntry": true,
@@ -39,7 +39,7 @@
     ]
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-BELyHn7j.js",
+    "file": "assets/sidepanel.html-D3Cig0VM.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
