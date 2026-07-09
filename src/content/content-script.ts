@@ -137,7 +137,8 @@ function renderPanel({ query, response, error }: ContextEvent) {
     }
     .brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
     .dot { width: 20px; height: 20px; border-radius: 6px; background: #6c63ff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; }
-    .close { cursor: pointer; background: none; border: none; color: #8b8b95; font-size: 16px; line-height: 1; padding: 4px; border-radius: 6px; }
+    .close { cursor: pointer; background: none; border: none; color: #8b8b95; line-height: 1; padding: 4px; border-radius: 6px; display: flex; }
+    .close svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .close:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
     .body { padding: 12px; overflow-y: auto; font-size: 13px; line-height: 1.6; }
     .query { color: #8b8b95; font-size: 11.5px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -157,7 +158,9 @@ function renderPanel({ query, response, error }: ContextEvent) {
   panel.innerHTML = `
     <div class="header">
       <div class="brand"><span class="dot">O</span> Ombre AI</div>
-      <button class="close" aria-label="Close">✕</button>
+      <button class="close" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
     <div class="body">
       ${query ? `<div class="query">${escapeHtml(query)}</div>` : ""}
@@ -340,7 +343,7 @@ function initEdgePanel() {
       width: 36px;
       height: 36px;
       border-radius: 999px;
-      background: #6c63ff;
+      background: #ffffff;
       border: none;
       display: flex;
       align-items: center;
@@ -356,13 +359,13 @@ function initEdgePanel() {
       width: 24px;
       height: 24px;
       border-radius: 999px;
-      background: #6c63ff;
+      background: #f2f2f5;
       border: none;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      color: #000000;
+      color: #6b6b76;
       margin-top: 10px;
       transform: translate(6px, 2px);
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -399,7 +402,31 @@ function initEdgePanel() {
     .iconbtn.active { background: rgba(108,99,255,0.15); color: #a9a3ff; }
     .iconbtn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 
+    .body-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
     .body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+    .jump-btn {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #1c1c20;
+      color: #f2f2f5;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      padding: 7px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      transition: transform 0.15s;
+    }
+    .jump-btn:hover { transform: translateX(-50%) translateY(-1px); }
+    .jump-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .empty { margin: auto; text-align: center; color: #8b8b95; font-size: 13px; padding: 0 20px; }
     .empty .title { color: #f2f2f5; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
 
@@ -491,7 +518,13 @@ function initEdgePanel() {
         </button>
       </div>
     </div>
-    <div class="body"></div>
+    <div class="body-wrap">
+      <div class="body"></div>
+      <button class="jump-btn" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+        <span class="jump-btn-label">Jump to latest</span>
+      </button>
+    </div>
     <div class="reload-banner" style="display:none;">
       <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
       <span>${CONTEXT_INVALIDATED_MESSAGE}</span>
@@ -512,6 +545,10 @@ function initEdgePanel() {
   root.append(style, pill, panel);
 
   const bodyEl = panel.querySelector(".body") as HTMLDivElement;
+  bodyEl.setAttribute("role", "log");
+  bodyEl.setAttribute("aria-relevant", "additions");
+  const jumpBtn = panel.querySelector(".jump-btn") as HTMLButtonElement;
+  const jumpBtnLabel = panel.querySelector(".jump-btn-label") as HTMLSpanElement;
   const textarea = panel.querySelector("textarea") as HTMLTextAreaElement;
   const sendBtn = panel.querySelector(".send") as HTMLButtonElement;
   const micBtn = panel.querySelector(".mic") as HTMLButtonElement;
@@ -525,6 +562,36 @@ function initEdgePanel() {
   let showHistory = false;
   let isMicListening = false;
   let micStop: (() => void) | null = null;
+
+  // ── Sticky-to-bottom scrolling ────────────────────────────────────────
+  // Mirrors the popup/side panel's behavior: auto-scroll new content only
+  // while already at the bottom; the moment the person scrolls up, that's
+  // a deliberate opt-out and a "Jump to latest" button appears instead of
+  // yanking their place in the thread back down.
+  const BOTTOM_THRESHOLD = 56;
+  let isPinnedToBottom = true;
+
+  function isAtBottom(): boolean {
+    return bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < BOTTOM_THRESHOLD;
+  }
+
+  function setPinned(pinned: boolean) {
+    isPinnedToBottom = pinned;
+    jumpBtn.style.display = pinned ? "none" : "flex";
+    if (pinned) jumpBtnLabel.textContent = "Jump to latest";
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
+    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior });
+    setPinned(true);
+  }
+
+  bodyEl.addEventListener("scroll", () => {
+    const atBottom = isAtBottom();
+    if (atBottom !== isPinnedToBottom) setPinned(atBottom);
+  });
+
+  jumpBtn.addEventListener("click", () => scrollToBottom());
 
   function activeConversation(): EdgeConversation | null {
     return conversations.find((c) => c.id === activeId) ?? null;
@@ -637,18 +704,45 @@ function initEdgePanel() {
     });
   }
 
+  let lastRenderedConvoId: string | null = null;
+  let lastRenderedMsgCount = 0;
+  let lastRenderedLastId: string | null = null;
+
+  function anchorRowNearTop(id: string) {
+    const row = bodyEl.querySelector<HTMLElement>(`[data-msg-id="${id}"]`);
+    if (!row) return;
+    const delta = row.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top - 12;
+    bodyEl.scrollTo({ top: bodyEl.scrollTop + delta, behavior: "smooth" });
+  }
+
   function renderChat() {
     const convo = activeConversation();
     const messages = convo?.messages ?? [];
+    const convoId = convo?.id ?? null;
+
+    bodyEl.setAttribute("aria-busy", String(isThinking));
+
+    const wasPinned = isPinnedToBottom;
+    const prevScrollTop = bodyEl.scrollTop;
+    const conversationChanged = convoId !== lastRenderedConvoId;
+    const newLast = messages[messages.length - 1];
+    const lastChanged = !!newLast && newLast.id !== lastRenderedLastId;
+    const isFreshUserTurn = lastChanged && !conversationChanged && newLast.role === "user";
+    const contentGrew = !conversationChanged && messages.length > lastRenderedMsgCount;
 
     if (messages.length === 0 && !isThinking) {
       bodyEl.innerHTML = `<div class="empty"><div class="title">Ombre AI</div>Ask a question about this page, or anything else — right from here.</div>`;
+      lastRenderedConvoId = convoId;
+      lastRenderedMsgCount = 0;
+      lastRenderedLastId = null;
+      setPinned(true);
       return;
     }
+
     bodyEl.innerHTML = messages
       .map(
         (m) => `
-      <div class="row ${m.role}">
+      <div class="row ${m.role}" data-msg-id="${m.id}">
         <div class="avatar ${m.role}">
           ${
             m.role === "user"
@@ -665,7 +759,31 @@ function initEdgePanel() {
     if (isThinking) {
       bodyEl.innerHTML += `<div class="row assistant"><div class="avatar assistant"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg></div><div class="thinking"><span></span><span></span><span></span></div></div>`;
     }
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior: "smooth" });
+
+    lastRenderedConvoId = convoId;
+    lastRenderedMsgCount = messages.length;
+    lastRenderedLastId = newLast?.id ?? null;
+
+    if (isFreshUserTurn) {
+      // Turn-anchoring: settle the message the person just sent near the
+      // top instead of snapping the whole thread to the bottom, so the
+      // reply arrives already in view below it with context preserved above.
+      requestAnimationFrame(() => anchorRowNearTop(newLast.id));
+      setPinned(false);
+    } else if (conversationChanged) {
+      scrollToBottom("auto");
+    } else if (wasPinned) {
+      scrollToBottom("smooth");
+    } else {
+      // Not pinned — the person scrolled up on purpose. Restore exactly
+      // where they were (innerHTML replacement resets scrollTop to 0) and
+      // surface a "new message" affordance instead of yanking them down.
+      bodyEl.scrollTop = prevScrollTop;
+      if (contentGrew) {
+        jumpBtnLabel.textContent = "New message";
+        jumpBtn.style.display = "flex";
+      }
+    }
   }
 
   function autosize() {
@@ -1035,15 +1153,19 @@ function initSelectionPopup() {
       Ask Ombre
     </button>
     <button class="tbtn" data-action="improve">
+      <span class="ticon c-improve"><svg viewBox="0 0 24 24"><path d="m12 3 1.9 4.9L19 9.8l-4.9 1.9L12 17l-1.9-4.9L5 10.2l4.9-1.9L12 3z"/></svg></span>
       Improve
     </button>
     <button class="tbtn" data-action="rephrase">
+      <span class="ticon c-rephrase"><svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>
       Rephrase
     </button>
     <button class="tbtn" data-action="addmore">
+      <span class="ticon c-addmore"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
       Add more
     </button>
     <button class="tbtn addchat" title="Send to chat panel to ask more there">
+      <span class="ticon c-chat"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
       Add to chat
     </button>
   `;
