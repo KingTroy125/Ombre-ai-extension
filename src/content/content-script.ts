@@ -243,6 +243,52 @@ function inlineMarkdown(text: string): string {
     .replace(/(?<!_)_([^_\n]+?)_(?!_)/g, "<em>$1</em>");
 }
 
+// Copy/Replace need the CLEAN text the person actually asked for — not the
+// raw markdown source. Without this, "Improve"/"Rephrase"/"Add more" would
+// paste literal **asterisks** and bullet dashes into whatever field the
+// person pasted or replaced into, since the AI's answer is markdown, not
+// plain text.
+function stripMarkdownForCopy(raw: string): string {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```/g, "").trim())
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/`([^`]+?)`/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "$1")
+    .replace(/(?<!_)_([^_\n]+?)_(?!_)/g, "$1")
+    .replace(/^[ \t]*[-*•][ \t]+/gm, "\u2022 ")
+    .trim();
+}
+
+// navigator.clipboard.writeText can throw in a content script — some sites
+// set a Permissions-Policy that blocks clipboard-write for embedded/third-
+// party contexts, and it always requires the document to currently have
+// focus. Fall back to the classic hidden-textarea + execCommand trick so
+// Copy still works on pages that block the modern API.
+async function copyToClipboard(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; text?: string }) => {
   if (message.type === "TOQAN_CONTEXT_RESPONSE") {
     const m = message as ContextEvent;
@@ -1136,6 +1182,7 @@ function initSelectionPopup() {
 
     .card-footer { display: flex; gap: 6px; padding: 9px 11px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
     .card-action { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 500; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
+    .card-action:disabled { cursor: default; opacity: 0.85; }
     .card-action:hover { background: #26262b; }
     .card-action.primary { background: #6c63ff; color: #fff; }
     .card-action.primary:hover { background: #7d75ff; }
@@ -1374,20 +1421,31 @@ function initSelectionPopup() {
           : ""
       }
     `;
-    cardFooter.querySelector('[data-act="copy"]')?.addEventListener("click", () => {
-      navigator.clipboard.writeText(text).catch(() => {});
+    cardFooter.querySelector('[data-act="copy"]')?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const originalLabel = btn.innerHTML;
+      const ok = await copyToClipboard(stripMarkdownForCopy(text));
+      btn.innerHTML = ok
+        ? `<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Copied`
+        : `<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg> Couldn't copy`;
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.innerHTML = originalLabel;
+        btn.disabled = false;
+      }, 1600);
     });
     cardFooter.querySelector('[data-act="replace"]')?.addEventListener("click", () => {
+      const clean = stripMarkdownForCopy(text);
       if (lastFieldEl) {
-        replaceInField(lastFieldEl, lastFieldStart, lastFieldEnd, text);
+        replaceInField(lastFieldEl, lastFieldStart, lastFieldEnd, clean);
       } else if (lastRange) {
         try {
           const sel = window.getSelection();
           sel?.removeAllRanges();
           sel?.addRange(lastRange);
-          document.execCommand("insertText", false, text);
+          document.execCommand("insertText", false, clean);
         } catch {
-          navigator.clipboard.writeText(text).catch(() => {});
+          copyToClipboard(clean);
         }
       }
       hideCard();

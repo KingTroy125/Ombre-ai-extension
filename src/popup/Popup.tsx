@@ -17,8 +17,8 @@ export function Popup() {
         <button
           onClick={() => setActiveTab("home")}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === "home"
-              ? "border-b-2 border-purple-500 text-purple-500"
-              : "text-muted-foreground hover:text-foreground"
+            ? "border-b-2 border-purple-500 text-purple-500"
+            : "text-muted-foreground hover:text-foreground"
             }`}
         >
           About
@@ -26,8 +26,8 @@ export function Popup() {
         <button
           onClick={() => setActiveTab("settings")}
           className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === "settings"
-              ? "border-b-2 border-purple-500 text-purple-500"
-              : "text-muted-foreground hover:text-foreground"
+            ? "border-b-2 border-purple-500 text-purple-500"
+            : "text-muted-foreground hover:text-foreground"
             }`}
         >
           Settings
