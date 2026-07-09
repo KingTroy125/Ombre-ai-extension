@@ -5,9 +5,9 @@
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_content-script.ts-loader-BYcvNobg.js": {
-    "file": "assets/content-script.ts-loader-BYcvNobg.js",
-    "src": "_content-script.ts-loader-BYcvNobg.js"
+  "_content-script.ts-loader-CPA2Xash.js": {
+    "file": "assets/content-script.ts-loader-CPA2Xash.js",
+    "src": "_content-script.ts-loader-CPA2Xash.js"
   },
   "_globals-DGNlleRD.js": {
     "file": "assets/globals-DGNlleRD.js",
@@ -54,7 +54,7 @@
     "isEntry": true
   },
   "src/content/content-script.ts": {
-    "file": "assets/content-script.ts-BBLXva-2.js",
+    "file": "assets/content-script.ts-Dc3KfH0-.js",
     "name": "content-script.ts",
     "src": "src/content/content-script.ts",
     "isEntry": true
