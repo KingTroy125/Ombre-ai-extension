@@ -1,6 +1,7 @@
 import { AlertTriangle, Bot, User } from "lucide-react";
 import type { ChatMessage } from "../lib/types";
 import { Markdown } from "./Markdown";
+import { ThinkingIndicator } from "./ThinkingIndicator";
 import { cn, formatTime } from "../lib/utils";
 
 export function Message({ message }: { message: ChatMessage }) {
@@ -52,18 +53,16 @@ export function Message({ message }: { message: ChatMessage }) {
 }
 
 export function ThinkingBubble({ note }: { note?: string | null }) {
+  const words = note ? [note] : ["Thinking", "Reasoning", "Considering"];
   return (
     <div className="flex animate-fade-in gap-2.5">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
         <Bot size={14} className="feather" />
       </div>
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-card px-3.5 py-3">
-          <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-muted-foreground [animation-delay:0ms]" />
-          <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-muted-foreground [animation-delay:150ms]" />
-          <span className="h-1.5 w-1.5 animate-pulse-dot rounded-full bg-muted-foreground [animation-delay:300ms]" />
+        <div className="flex items-center rounded-2xl rounded-tl-sm bg-card px-3.5 py-3">
+          <ThinkingIndicator words={words} />
         </div>
-        {note && <span className="px-1 text-[11px] text-muted-foreground">{note}</span>}
       </div>
     </div>
   );
