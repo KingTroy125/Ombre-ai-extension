@@ -5,32 +5,32 @@
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_content-script.ts-loader-CPA2Xash.js": {
-    "file": "assets/content-script.ts-loader-CPA2Xash.js",
-    "src": "_content-script.ts-loader-CPA2Xash.js"
+  "_content-script.ts-loader-BIPXjr6Q.js": {
+    "file": "assets/content-script.ts-loader-BIPXjr6Q.js",
+    "src": "_content-script.ts-loader-BIPXjr6Q.js"
   },
-  "_globals-DGNlleRD.js": {
-    "file": "assets/globals-DGNlleRD.js",
+  "_globals-DUiXItKr.css": {
+    "file": "assets/globals-DUiXItKr.css",
+    "src": "_globals-DUiXItKr.css"
+  },
+  "_globals-Dm7S2OVr.js": {
+    "file": "assets/globals-Dm7S2OVr.js",
     "name": "globals",
     "css": [
-      "assets/globals-ge7Fdmq3.css"
+      "assets/globals-DUiXItKr.css"
     ]
   },
-  "_globals-ge7Fdmq3.css": {
-    "file": "assets/globals-ge7Fdmq3.css",
-    "src": "_globals-ge7Fdmq3.css"
-  },
   "index.html": {
-    "file": "assets/index.html-BCssO8QP.js",
+    "file": "assets/index.html-DQE1hmVE.js",
     "name": "index.html",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_globals-DGNlleRD.js"
+      "_globals-Dm7S2OVr.js"
     ]
   },
   "options.html": {
-    "file": "assets/options.html-Ql7PYl3y.js",
+    "file": "assets/options.html-DVwK3EnB.js",
     "name": "options.html",
     "src": "options.html",
     "isEntry": true,
@@ -39,7 +39,7 @@
     ]
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-D3Cig0VM.js",
+    "file": "assets/sidepanel.html-DY_L9iD8.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
@@ -54,7 +54,7 @@
     "isEntry": true
   },
   "src/content/content-script.ts": {
-    "file": "assets/content-script.ts-Dc3KfH0-.js",
+    "file": "assets/content-script.ts-CbBTqIcJ.js",
     "name": "content-script.ts",
     "src": "src/content/content-script.ts",
     "isEntry": true
