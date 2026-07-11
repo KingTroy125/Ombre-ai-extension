@@ -104,3 +104,69 @@ svg.feather {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ── Thinking indicator ────────────────────────────────────────────────── */
+/* A small morphing sparkle glyph + cycling status word, replacing the old
+   three-dot pulse. The glyph is four SVG paths that share the same command
+   structure (M + 4 cubic curves + Z) so the browser can interpolate the `d`
+   attribute directly as one continuous shape — Chrome (this extension's only
+   target) has supported animating `d` as a CSS property since v79, so no
+   animation library is needed for the morph, the spin, or the twinkle.
+   prefers-reduced-motion is handled by the global rule above, which already
+   collapses every animation's duration/iteration-count project-wide. */
+.thinking-glyph-main {
+  animation: thinking-morph 4s ease-in-out infinite, thinking-spin-scale 4s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: center;
+}
+.thinking-glyph-twinkle {
+  animation: thinking-twinkle 4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes thinking-morph {
+  0%, 100% { d: path("M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z"); }
+  30%  { d: path("M 12 4.2 C 16.8 3.4 20.6 7.2 19.8 12 C 20.6 16.4 16.4 20.6 12 19.8 C 7.8 20.6 3.4 16.8 4.2 12 C 3.4 7.6 7.2 3.4 12 4.2 Z"); }
+  50%  { d: path("M 12 5 C 15.87 5 19 8.13 19 12 C 19 15.87 15.87 19 12 19 C 8.13 19 5 15.87 5 12 C 5 8.13 8.13 5 12 5 Z"); }
+  70%  { d: path("M 12 3.6 C 16.4 4.6 18.6 8 19.2 12 C 18.6 16.2 16.2 19.4 12 20.4 C 8 19.4 5.2 16.4 4.8 12 C 5.4 7.8 7.6 4.4 12 3.6 Z"); }
+}
+@keyframes thinking-spin-scale {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  30% { transform: rotate(108deg) scale(0.9); }
+  50% { transform: rotate(180deg) scale(0.78); }
+  70% { transform: rotate(252deg) scale(0.9); }
+}
+@keyframes thinking-twinkle {
+  0%, 100% { opacity: 0; transform: rotate(0deg) scale(0.2); }
+  30% { opacity: 0; transform: rotate(45deg) scale(0.5); }
+  50% { opacity: 1; transform: rotate(90deg) scale(1); }
+  70% { opacity: 0; transform: rotate(135deg) scale(0.5); }
+}
+
+.thinking-word-grid {
+  display: inline-grid;
+  overflow: hidden;
+}
+.thinking-word-grid > * {
+  grid-column: 1;
+  grid-row: 1;
+}
+.thinking-word {
+  background-image:
+    linear-gradient(90deg, transparent calc(50% - var(--tw-sheen-spread, 16px)), var(--foreground), transparent calc(50% + var(--tw-sheen-spread, 16px))),
+    linear-gradient(var(--muted-foreground), var(--muted-foreground));
+  background-repeat: no-repeat, padding-box;
+  background-size: 250% 100%, auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: thinking-word-in 0.32s cubic-bezier(0.4, 0, 0.2, 1), thinking-sheen 2s linear infinite;
+}
+@keyframes thinking-word-in {
+  from { opacity: 0; transform: translateY(70%); filter: blur(3px); background-position: 100% center, 0 0; }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); background-position: 0% center, 0 0; }
+}
+@keyframes thinking-sheen {
+  from { background-position: 0% center, 0 0; }
+  to   { background-position: -200% center, 0 0; }
+}
