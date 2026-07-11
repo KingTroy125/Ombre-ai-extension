@@ -289,6 +289,63 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
+// ── Shared thinking-indicator markup (morphing sparkle + cycling word) ────
+// Used by both the edge panel's chat view and the selection-toolbar result
+// card's loading state, so the two vanilla-DOM surfaces match the popup/side
+// panel's React ThinkingIndicator exactly.
+const THINKING_SPARKLE_SVG = `
+  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <defs>
+      <linearGradient id="thinking-grad" gradientUnits="userSpaceOnUse" x1="5" y1="4" x2="20" y2="20">
+        <stop offset="0" stop-color="currentColor" stop-opacity="1" />
+        <stop offset="1" stop-color="currentColor" stop-opacity="0.4" />
+      </linearGradient>
+    </defs>
+    <path class="thinking-glyph-main" d="M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z" fill="url(#thinking-grad)" />
+    <path class="thinking-glyph-twinkle" d="M 19 2.5 C 19.18 4.32 19.68 4.82 21.5 5 C 19.68 5.18 19.18 5.68 19 7.5 C 18.82 5.68 18.32 5.18 16.5 5 C 18.32 4.82 18.82 4.32 19 2.5 Z" fill="currentColor" />
+  </svg>
+`;
+
+function thinkingIndicatorHtml(words: string[]): string {
+  const word = words[0] ?? "";
+  const longest = words.reduce((a, b) => (a.length >= b.length ? a : b), "");
+  return `
+    ${THINKING_SPARKLE_SVG}
+    <span class="thinking-word-grid">
+      <span class="invisible-word">${escapeHtml(longest)}</span>
+      <span class="thinking-word" data-thinking-word>${escapeHtml(word)}</span>
+    </span>
+  `;
+}
+
+/** One-shot update of a rendered thinking-indicator's word (e.g. switching to
+ *  "Retrying" mid-flight on overload), independent of any running cycle. */
+function setThinkingWord(root: ParentNode, word: string) {
+  const el = root.querySelector<HTMLElement>("[data-thinking-word]");
+  if (!el) return;
+  const fresh = el.cloneNode(false) as HTMLElement;
+  fresh.textContent = word;
+  el.replaceWith(fresh);
+}
+
+/** Starts (or restarts) cycling the word inside a rendered thinking-indicator.
+ *  Returns a stop function; call it once the indicator is removed/replaced. */
+function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 2600): () => void {
+  if (words.length <= 1) return () => {};
+  let index = 0;
+  const timer = window.setInterval(() => {
+    index = (index + 1) % words.length;
+    const el = root.querySelector<HTMLElement>("[data-thinking-word]");
+    if (!el) return;
+    // Re-trigger the CSS enter animation on each word change by cloning the
+    // node — simplest reliable way to restart a CSS animation from vanilla JS.
+    const fresh = el.cloneNode(false) as HTMLElement;
+    fresh.textContent = words[index];
+    el.replaceWith(fresh);
+  }, intervalMs);
+  return () => window.clearInterval(timer);
+}
+
 chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; text?: string }) => {
   if (message.type === "TOQAN_CONTEXT_RESPONSE") {
     const m = message as ContextEvent;
@@ -494,11 +551,59 @@ function initEdgePanel() {
     .bubble strong { font-weight: 600; color: #fff; }
     .bubble code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #c9c4ff; }
 
-    .thinking { display: flex; gap: 4px; padding: 10px 12px; background: #17171a; border-radius: 14px; border-top-left-radius: 4px; width: fit-content; }
-    .thinking span { width: 5px; height: 5px; border-radius: 999px; background: #8b8b95; animation: pulse 1.4s ease-in-out infinite; }
-    .thinking span:nth-child(2) { animation-delay: 0.15s; }
-    .thinking span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes pulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+    .thinking { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #17171a; border-radius: 14px; border-top-left-radius: 4px; width: fit-content; color: #8b8b95; }
+
+    .thinking-glyph-main {
+      animation: thinking-morph 4s ease-in-out infinite, thinking-spin-scale 4s ease-in-out infinite;
+      transform-box: view-box;
+      transform-origin: center;
+    }
+    .thinking-glyph-twinkle {
+      animation: thinking-twinkle 4s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    @keyframes thinking-morph {
+      0%, 100% { d: path("M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z"); }
+      30%  { d: path("M 12 4.2 C 16.8 3.4 20.6 7.2 19.8 12 C 20.6 16.4 16.4 20.6 12 19.8 C 7.8 20.6 3.4 16.8 4.2 12 C 3.4 7.6 7.2 3.4 12 4.2 Z"); }
+      50%  { d: path("M 12 5 C 15.87 5 19 8.13 19 12 C 19 15.87 15.87 19 12 19 C 8.13 19 5 15.87 5 12 C 5 8.13 8.13 5 12 5 Z"); }
+      70%  { d: path("M 12 3.6 C 16.4 4.6 18.6 8 19.2 12 C 18.6 16.2 16.2 19.4 12 20.4 C 8 19.4 5.2 16.4 4.8 12 C 5.4 7.8 7.6 4.4 12 3.6 Z"); }
+    }
+    @keyframes thinking-spin-scale {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      30% { transform: rotate(108deg) scale(0.9); }
+      50% { transform: rotate(180deg) scale(0.78); }
+      70% { transform: rotate(252deg) scale(0.9); }
+    }
+    @keyframes thinking-twinkle {
+      0%, 100% { opacity: 0; transform: rotate(0deg) scale(0.2); }
+      30% { opacity: 0; transform: rotate(45deg) scale(0.5); }
+      50% { opacity: 1; transform: rotate(90deg) scale(1); }
+      70% { opacity: 0; transform: rotate(135deg) scale(0.5); }
+    }
+    .thinking-word-grid { display: inline-grid; overflow: hidden; font-size: 12.5px; }
+    .thinking-word-grid > * { grid-column: 1; grid-row: 1; }
+    .invisible-word { visibility: hidden; }
+    .thinking-word {
+      animation: thinking-word-in 0.32s cubic-bezier(0.4, 0, 0.2, 1), thinking-sheen 2s linear infinite;
+      background-image: linear-gradient(90deg, transparent calc(50% - 16px), #f2f2f5, transparent calc(50% + 16px)), linear-gradient(#8b8b95, #8b8b95);
+      background-repeat: no-repeat, padding-box;
+      background-size: 250% 100%, auto;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    @keyframes thinking-word-in {
+      from { opacity: 0; transform: translateY(70%); filter: blur(3px); background-position: 100% center, 0 0; }
+      to   { opacity: 1; transform: translateY(0); filter: blur(0); background-position: 0% center, 0 0; }
+    }
+    @keyframes thinking-sheen {
+      from { background-position: 0% center, 0 0; }
+      to   { background-position: -200% center, 0 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .thinking-glyph-main, .thinking-glyph-twinkle, .thinking-word { animation: none !important; }
+    }
 
     .history-list { display: flex; flex-direction: column; gap: 3px; }
     .history-empty { margin: auto; text-align: center; color: #8b8b95; font-size: 13px; padding: 0 20px; }
@@ -608,6 +713,7 @@ function initEdgePanel() {
   let showHistory = false;
   let isMicListening = false;
   let micStop: (() => void) | null = null;
+  let stopEdgeThinkingCycle: (() => void) | null = null;
 
   // ── Sticky-to-bottom scrolling ────────────────────────────────────────
   // Mirrors the popup/side panel's behavior: auto-scroll new content only
@@ -803,7 +909,12 @@ function initEdgePanel() {
       )
       .join("");
     if (isThinking) {
-      bodyEl.innerHTML += `<div class="row assistant"><div class="avatar assistant"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg></div><div class="thinking"><span></span><span></span><span></span></div></div>`;
+      bodyEl.innerHTML += `<div class="row assistant"><div class="avatar assistant"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg></div><div class="thinking">${thinkingIndicatorHtml(["Thinking", "Reasoning", "Considering"])}</div></div>`;
+      stopEdgeThinkingCycle?.();
+      stopEdgeThinkingCycle = startThinkingWordCycle(bodyEl, ["Thinking", "Reasoning", "Considering"]);
+    } else {
+      stopEdgeThinkingCycle?.();
+      stopEdgeThinkingCycle = null;
     }
 
     lastRenderedConvoId = convoId;
@@ -888,8 +999,14 @@ function initEdgePanel() {
       target.updatedAt = Date.now();
       persist();
       if (target.id === activeId && !showHistory) render();
+    } else if (event.type === "TOQAN_OVERLOADED" && target.id === activeId && !showHistory) {
+      // Background is silently retrying — swap the word to "Retrying"
+      // in place rather than a full re-render, so scroll position and
+      // the rest of the thread are left completely undisturbed.
+      stopEdgeThinkingCycle?.();
+      stopEdgeThinkingCycle = null;
+      setThinkingWord(bodyEl, "Retrying");
     }
-    // TOQAN_OVERLOADED: background is silently retrying — keep the thinking indicator up.
   });
 
   textarea.addEventListener("input", autosize);
@@ -1174,11 +1291,59 @@ function initSelectionPopup() {
     .addmore-submit:hover { background: #7d75ff; }
     .addmore-submit svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-    .card-loading { display: flex; gap: 4px; align-items: center; padding: 2px 0; }
-    .card-loading span { width: 5px; height: 5px; border-radius: 999px; background: #8b8b95; animation: sel-pulse 1.4s ease-in-out infinite; }
-    .card-loading span:nth-child(2) { animation-delay: 0.15s; }
-    .card-loading span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes sel-pulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+    .card-loading { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #8b8b95; }
+
+    .thinking-glyph-main {
+      animation: thinking-morph 4s ease-in-out infinite, thinking-spin-scale 4s ease-in-out infinite;
+      transform-box: view-box;
+      transform-origin: center;
+    }
+    .thinking-glyph-twinkle {
+      animation: thinking-twinkle 4s ease-in-out infinite;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    @keyframes thinking-morph {
+      0%, 100% { d: path("M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z"); }
+      30%  { d: path("M 12 4.2 C 16.8 3.4 20.6 7.2 19.8 12 C 20.6 16.4 16.4 20.6 12 19.8 C 7.8 20.6 3.4 16.8 4.2 12 C 3.4 7.6 7.2 3.4 12 4.2 Z"); }
+      50%  { d: path("M 12 5 C 15.87 5 19 8.13 19 12 C 19 15.87 15.87 19 12 19 C 8.13 19 5 15.87 5 12 C 5 8.13 8.13 5 12 5 Z"); }
+      70%  { d: path("M 12 3.6 C 16.4 4.6 18.6 8 19.2 12 C 18.6 16.2 16.2 19.4 12 20.4 C 8 19.4 5.2 16.4 4.8 12 C 5.4 7.8 7.6 4.4 12 3.6 Z"); }
+    }
+    @keyframes thinking-spin-scale {
+      0%, 100% { transform: rotate(0deg) scale(1); }
+      30% { transform: rotate(108deg) scale(0.9); }
+      50% { transform: rotate(180deg) scale(0.78); }
+      70% { transform: rotate(252deg) scale(0.9); }
+    }
+    @keyframes thinking-twinkle {
+      0%, 100% { opacity: 0; transform: rotate(0deg) scale(0.2); }
+      30% { opacity: 0; transform: rotate(45deg) scale(0.5); }
+      50% { opacity: 1; transform: rotate(90deg) scale(1); }
+      70% { opacity: 0; transform: rotate(135deg) scale(0.5); }
+    }
+    .thinking-word-grid { display: inline-grid; overflow: hidden; font-size: 12.5px; }
+    .thinking-word-grid > * { grid-column: 1; grid-row: 1; }
+    .invisible-word { visibility: hidden; }
+    .thinking-word {
+      animation: thinking-word-in 0.32s cubic-bezier(0.4, 0, 0.2, 1), thinking-sheen 2s linear infinite;
+      background-image: linear-gradient(90deg, transparent calc(50% - 16px), #f2f2f5, transparent calc(50% + 16px)), linear-gradient(#8b8b95, #8b8b95);
+      background-repeat: no-repeat, padding-box;
+      background-size: 250% 100%, auto;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+    @keyframes thinking-word-in {
+      from { opacity: 0; transform: translateY(70%); filter: blur(3px); background-position: 100% center, 0 0; }
+      to   { opacity: 1; transform: translateY(0); filter: blur(0); background-position: 0% center, 0 0; }
+    }
+    @keyframes thinking-sheen {
+      from { background-position: 0% center, 0 0; }
+      to   { background-position: -200% center, 0 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .thinking-glyph-main, .thinking-glyph-twinkle, .thinking-word { animation: none !important; }
+    }
 
     .card-footer { display: flex; gap: 6px; padding: 9px 11px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
     .card-action { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 500; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
@@ -1250,6 +1415,7 @@ function initSelectionPopup() {
   function hideCard() {
     card.classList.remove("visible");
     activeConversationId = null;
+    stopCardThinkingCycle?.();
   }
 
   function isWithinOwnUI(node: Node | null): boolean {
@@ -1392,12 +1558,17 @@ function initSelectionPopup() {
 
   cardCloseBtn.addEventListener("click", hideCard);
 
-  function renderCardLoading() {
-    cardBody.innerHTML = `<div class="card-loading"><span></span><span></span><span></span></div>`;
+  let stopCardThinkingCycle: (() => void) | null = null;
+
+  function renderCardLoading(words: string[] = ["Thinking", "Reasoning", "Considering"]) {
+    stopCardThinkingCycle?.();
+    cardBody.innerHTML = `<div class="card-loading">${thinkingIndicatorHtml(words)}</div>`;
     cardFooter.style.display = "none";
+    stopCardThinkingCycle = startThinkingWordCycle(cardBody, words);
   }
 
   function renderCardResult(text: string, isError: boolean) {
+    stopCardThinkingCycle?.();
     cardBody.innerHTML = isError
       ? `<div class="error-text">${escapeHtml(text)}</div>`
       : renderMarkdownLite(text);
@@ -1549,8 +1720,9 @@ function initSelectionPopup() {
       renderCardResult(event.reply ?? "", false);
     } else if (event.type === "TOQAN_ERROR") {
       renderCardResult(event.error ?? "Unknown error", true);
+    } else if (event.type === "TOQAN_OVERLOADED") {
+      renderCardLoading(["Retrying"]);
     }
-    // TOQAN_OVERLOADED: keep the loading state up while the background retries.
   });
 
   toolbar.querySelectorAll<HTMLButtonElement>(".tbtn[data-action]").forEach((btn) => {
