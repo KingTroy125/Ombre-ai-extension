@@ -44,7 +44,7 @@ function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
 function safeStorageSet(items: Record<string, unknown>): void {
   if (!isExtensionContextValid()) return;
   try {
-    chrome.storage.local.set(items).catch(() => {});
+    chrome.storage.local.set(items).catch(() => { });
   } catch {
     // context died mid-call — nothing more we can do, next save attempt will just no-op too
   }
@@ -164,9 +164,8 @@ function renderPanel({ query, response, error }: ContextEvent) {
     </div>
     <div class="body">
       ${query ? `<div class="query">${escapeHtml(query)}</div>` : ""}
-      <div class="${error ? "answer error" : "answer"}">${
-        error ? escapeHtml(error) : renderMarkdownLite(response || "")
-      }</div>
+      <div class="${error ? "answer error" : "answer"}">${error ? escapeHtml(error) : renderMarkdownLite(response || "")
+    }</div>
     </div>
   `;
 
@@ -331,7 +330,7 @@ function setThinkingWord(root: ParentNode, word: string) {
 /** Starts (or restarts) cycling the word inside a rendered thinking-indicator.
  *  Returns a stop function; call it once the indicator is removed/replaced. */
 function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 2600): () => void {
-  if (words.length <= 1) return () => {};
+  if (words.length <= 1) return () => { };
   let index = 0;
   const timer = window.setInterval(() => {
     index = (index + 1) % words.length;
@@ -896,15 +895,13 @@ function initEdgePanel() {
         (m) => `
       <div class="row ${m.role}" data-msg-id="${m.id}">
         <div class="avatar ${m.role}">
-          ${
-            m.role === "user"
-              ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
-              : `<svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`
+          ${m.role === "user"
+            ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
+            : `<svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/></svg>`
           }
         </div>
-        <div class="bubble ${m.role}${m.error ? " error" : ""}">${
-          m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
-        }</div>
+        <div class="bubble ${m.role}${m.error ? " error" : ""}">${m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
+          }</div>
       </div>`
       )
       .join("");
@@ -1365,19 +1362,15 @@ function initSelectionPopup() {
       Ask Ombre
     </button>
     <button class="tbtn" data-action="improve">
-      <span class="ticon c-improve"><svg viewBox="0 0 24 24"><path d="m12 3 1.9 4.9L19 9.8l-4.9 1.9L12 17l-1.9-4.9L5 10.2l4.9-1.9L12 3z"/></svg></span>
       Improve
     </button>
     <button class="tbtn" data-action="rephrase">
-      <span class="ticon c-rephrase"><svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg></span>
       Rephrase
     </button>
     <button class="tbtn" data-action="addmore">
-      <span class="ticon c-addmore"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
       Add more
     </button>
     <button class="tbtn addchat" title="Send to chat panel to ask more there">
-      <span class="ticon c-chat"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
       Add to chat
     </button>
   `;
@@ -1583,13 +1576,12 @@ function initSelectionPopup() {
         <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
         Copy
       </button>
-      ${
-        lastIsEditable
-          ? `<button class="card-action primary" data-act="replace">
+      ${lastIsEditable
+        ? `<button class="card-action primary" data-act="replace">
               <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
               Replace
             </button>`
-          : ""
+        : ""
       }
     `;
     cardFooter.querySelector('[data-act="copy"]')?.addEventListener("click", async (e) => {
@@ -1740,7 +1732,7 @@ function initSelectionPopup() {
       // We're inside an iframe (e.g. Gmail's compose box) where the edge
       // panel doesn't exist — ask the background worker to relay this to
       // the top frame, which does have it.
-      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => {});
+      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => { });
     }
   });
 }
