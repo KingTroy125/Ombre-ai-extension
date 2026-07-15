@@ -1,0 +1,1 @@
+import{c as e,f as t,l as n,n as r,t as i}from"./globals-DQpCYJoR.js";var a=t(n(),1),o=t(e(),1),s=r();function c(){return(0,s.jsx)(`div`,{className:`min-h-screen bg-background`,children:(0,s.jsx)(i,{})})}o.createRoot(document.getElementById(`root`)).render((0,s.jsx)(a.StrictMode,{children:(0,s.jsx)(c,{})}));
