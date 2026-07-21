@@ -42,7 +42,6 @@ export function Markdown({ content, className }: { content: string; className?: 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          /* ── Code ─────────────────────────────────────────────── */
           code(props) {
             const { className, children, ...rest } = props as {
               className?: string;
@@ -62,8 +61,6 @@ export function Markdown({ content, className }: { content: string; className?: 
               </code>
             );
           },
-
-          /* ── Links ────────────────────────────────────────────── */
           a({ children, href }) {
             return (
               <a
@@ -76,64 +73,31 @@ export function Markdown({ content, className }: { content: string; className?: 
               </a>
             );
           },
-
-          /* ── Lists ────────────────────────────────────────────── */
           ul({ children }) {
-            return <ul className="my-1.5 list-disc space-y-0.5 pl-5">{children}</ul>;
+            return <ul className="my-1.5 list-disc space-y-1 pl-5">{children}</ul>;
           },
           ol({ children }) {
-            return <ol className="my-1.5 list-decimal space-y-0.5 pl-5">{children}</ol>;
+            return <ol className="my-1.5 list-decimal space-y-1 pl-5">{children}</ol>;
           },
-          li({ children }) {
-            return <li className="leading-relaxed">{children}</li>;
-          },
-
-          /* ── Paragraphs ───────────────────────────────────────── */
           p({ children }) {
             return <p className="mb-2 last:mb-0">{children}</p>;
           },
-
-          /* ── Headings ─────────────────────────────────────────── */
           h1({ children }) {
-            return <h1 className="mb-2 mt-3 text-[16px] font-semibold text-foreground">{children}</h1>;
+            return <h1 className="mb-2 mt-3 text-[16px] font-semibold">{children}</h1>;
           },
           h2({ children }) {
-            return <h2 className="mb-2 mt-3 text-[15px] font-semibold text-foreground">{children}</h2>;
+            return <h2 className="mb-2 mt-3 text-[15px] font-semibold">{children}</h2>;
           },
           h3({ children }) {
-            return (
-              <h3 className="mb-1.5 mt-2.5 text-[13.5px] font-semibold text-foreground">
-                {children}
-              </h3>
-            );
+            return <h3 className="mb-1.5 mt-2 text-[14px] font-semibold">{children}</h3>;
           },
-
-          /* ── Horizontal rule (---) ────────────────────────────── */
-          hr() {
-            return <hr className="my-3 border-none border-t border-border opacity-50" />;
-          },
-
-          /* ── Blockquote (> …) ─────────────────────────────────── */
-          // Used by the AI for email body copy — rendered as a clean
-          // card-like block rather than a gutter quote so multi-line
-          // emails read naturally.
           blockquote({ children }) {
             return (
-              <blockquote className="my-2 rounded-lg border border-border/60 bg-secondary/40 px-3 py-2.5 text-[13.5px] leading-relaxed text-foreground/90">
+              <blockquote className="my-2 border-l-2 border-primary/50 pl-3 text-muted-foreground">
                 {children}
               </blockquote>
             );
           },
-
-          /* ── Emphasis ─────────────────────────────────────────── */
-          strong({ children }) {
-            return <strong className="font-semibold text-foreground">{children}</strong>;
-          },
-          em({ children }) {
-            return <em className="italic text-foreground/80">{children}</em>;
-          },
-
-          /* ── Tables ───────────────────────────────────────────── */
           table({ children }) {
             return (
               <div className="my-2 overflow-x-auto rounded-lg border border-border">

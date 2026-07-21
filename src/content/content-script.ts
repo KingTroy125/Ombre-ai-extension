@@ -621,11 +621,19 @@ function initEdgePanel() {
     .reload-banner svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
     .inputrow { border-top: 1px solid rgba(255,255,255,0.08); padding: 10px; }
-    .inputbox { display: flex; align-items: flex-end; gap: 8px; background: #17171a; border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 6px 6px 6px 10px; }
-    .inputbox:focus-within { border-color: rgba(108,99,255,0.6); box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
+    .input-gradient-ring { border-radius: 15px; padding: 1.5px; background: linear-gradient(90deg, #6c63ff, #d946ef, #6c63ff); box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: box-shadow 0.15s; }
+    .input-gradient-ring:focus-within { box-shadow: 0 0 0 3px rgba(108,99,255,0.18); }
+    .input-tip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; background: linear-gradient(90deg, rgba(108,99,255,0.16), rgba(217,70,239,0.09), rgba(108,99,255,0.16)); border-radius: 13.5px 13.5px 0 0; }
+    .input-tip span { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: #b7b2ff; }
+    .input-tip svg.tip-star { width: 12px; height: 12px; fill: #b7b2ff; stroke: none; flex-shrink: 0; }
+    .input-tip-close { background: none; border: none; padding: 2px; border-radius: 999px; color: #9a94e0; cursor: pointer; display: flex; }
+    .input-tip-close svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .input-tip-close:hover { color: #d4d1ff; }
+    .inputbox { display: flex; align-items: flex-end; gap: 8px; background: #17171a; border-radius: 13.5px; padding: 6px 6px 6px 10px; }
+    .input-gradient-ring:has(.input-tip) .inputbox { border-radius: 0 0 13.5px 13.5px; }
     textarea { flex: 1; resize: none; max-height: 120px; background: transparent; border: none; outline: none; color: #f2f2f5; font-size: 13.5px; line-height: 1.5; font-family: inherit; padding: 4px 0; }
     textarea::placeholder { color: #8b8b95; }
-    .send { width: 30px; height: 30px; border-radius: 999px; background: #6c63ff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: transform 0.15s; }
+    .send { width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(135deg, #6c63ff, #d946ef); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: transform 0.15s; box-shadow: 0 2px 6px rgba(108,99,255,0.35); }
     .send:hover { transform: scale(1.05); }
     .send:disabled { opacity: 0.3; cursor: default; transform: none; }
     .send svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -680,14 +688,25 @@ function initEdgePanel() {
       <span>${CONTEXT_INVALIDATED_MESSAGE}</span>
     </div>
     <div class="inputrow">
-      <div class="inputbox">
-        <textarea rows="1" placeholder="Ask Ombre AI anything…"></textarea>
-        <button class="mic" aria-label="Voice input" title="Voice input">
-          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-        </button>
-        <button class="send" aria-label="Send" title="Send">
-          <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-        </button>
+      <div class="input-gradient-ring">
+        <div class="input-tip">
+          <span>
+            <svg class="tip-star" viewBox="0 0 24 24"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
+            Select text on any page to ask, improve, or rephrase it
+          </span>
+          <button class="input-tip-close" aria-label="Dismiss tip">
+            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="inputbox">
+          <textarea rows="1" placeholder="Ask Ombre AI anything…"></textarea>
+          <button class="mic" aria-label="Voice input" title="Voice input">
+            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+          </button>
+          <button class="send" aria-label="Send" title="Send">
+            <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -705,6 +724,14 @@ function initEdgePanel() {
   const closeBtn = panel.querySelector(".close") as HTMLButtonElement;
   const historyBtn = panel.querySelector(".history") as HTMLButtonElement;
   const newChatBtn = panel.querySelector(".newchat") as HTMLButtonElement;
+  const inputTip = panel.querySelector(".input-tip") as HTMLDivElement;
+  const inputTipClose = panel.querySelector(".input-tip-close") as HTMLButtonElement;
+  const inputBoxEl = panel.querySelector(".inputbox") as HTMLDivElement;
+
+  inputTipClose.addEventListener("click", () => {
+    inputTip.remove();
+    inputBoxEl.style.borderRadius = "13.5px";
+  });
 
   let conversations: EdgeConversation[] = [];
   let activeId: string | null = null;
@@ -1188,17 +1215,35 @@ function initSelectionPopup() {
       position: fixed;
       z-index: 2147483647;
       display: flex;
-      align-items: stretch;
-      padding: 4px;
+      align-items: center;
+      gap: 2px;
+      padding: 5px;
       border-radius: 13px;
-      background: #1c1c1f;
-      box-shadow: 0 10px 28px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06);
+      background: #18181b;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.07);
       opacity: 0;
       transform: translateY(6px) scale(0.97);
       transition: opacity 0.16s ease, transform 0.16s ease;
       pointer-events: none;
+      overflow: visible;
     }
     .toolbar.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+    .toolbar-badge {
+      position: absolute;
+      top: -12px;
+      left: 12px;
+      width: 25px;
+      height: 25px;
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    .toolbar-badge svg { width: 13px; height: 13px; fill: #6c63ff; stroke: none; }
 
     .tbtn {
       display: flex;
@@ -1206,43 +1251,21 @@ function initSelectionPopup() {
       gap: 6px;
       border: none;
       background: transparent;
-      color: #e4e4e7;
+      color: #d4d4d8;
       font-size: 12.5px;
       font-weight: 500;
-      padding: 6px 10px 6px 6px;
+      padding: 7px 11px;
       border-radius: 9px;
       cursor: pointer;
       white-space: nowrap;
-      position: relative;
-      transition: background 0.12s;
+      transition: background 0.12s, color 0.12s;
     }
-    .tbtn:hover { background: rgba(255,255,255,0.08); }
-    .tbtn + .tbtn::before {
-      content: "";
-      position: absolute;
-      left: -2px;
-      top: 20%;
-      height: 60%;
-      width: 1px;
-      background: rgba(255,255,255,0.1);
-    }
-    .tbtn:hover + .tbtn::before, .tbtn:hover::before { background: transparent; }
+    .tbtn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .tbtn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-    .ticon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      border-radius: 6px;
-      flex-shrink: 0;
-    }
-    .ticon.c-ask { background: linear-gradient(135deg, #6c63ff, #8b5cf6); }
-    .ticon.c-improve { background: #f5a524; }
-    .ticon.c-rephrase { background: #3b82f6; }
-    .ticon.c-addmore { background: #22c55e; }
-    .ticon.c-chat { background: #ec4899; }
-    .ticon svg { width: 11px; height: 11px; stroke: #fff; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+    .tbtn.primary { background: #6c63ff; color: #fff; font-weight: 600; }
+    .tbtn.primary:hover { background: #7d75ff; }
+    .tbtn.primary svg { fill: #fff; stroke: none; }
 
     .card {
       position: fixed;
@@ -1357,20 +1380,24 @@ function initSelectionPopup() {
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
   toolbar.innerHTML = `
-    <button class="tbtn" data-action="ask">
-      <span class="ticon c-ask"><svg viewBox="0 0 24 24"><path d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.5-6.5-2.1 2.1M8.6 15.4l-2.1 2.1m11-2.1 2.1 2.1M8.6 8.6 6.5 6.5"/></svg></span>
+    <button class="tbtn primary" data-action="ask">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
       Ask Ombre
     </button>
     <button class="tbtn" data-action="improve">
+      <svg viewBox="0 0 24 24"><path d="M15 4V2m0 4V4m-4.5 3.5L9 6m1.5 1.5L9 9M4 15l11-11 3 3L7 18l-4 1 1-4z"/></svg>
       Improve
     </button>
     <button class="tbtn" data-action="rephrase">
+      <svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg>
       Rephrase
     </button>
     <button class="tbtn" data-action="addmore">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       Add more
     </button>
     <button class="tbtn addchat" title="Send to chat panel to ask more there">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Add to chat
     </button>
   `;
@@ -1539,7 +1566,10 @@ function initSelectionPopup() {
   document.addEventListener("mousedown", (e) => {
     if (isWithinOwnUI(e.target as Node)) return;
     hideToolbar();
-    hideCard();
+    // Note: the result card is deliberately NOT closed here. Once Ask/
+    // Improve/Rephrase/Add more has produced an answer, only the card's own
+    // close (X) button dismisses it — clicking elsewhere on the page (to
+    // read context, copy something else, etc.) no longer loses the answer.
   });
   window.addEventListener("scroll", hideToolbar, true);
   document.addEventListener("keydown", (e) => {

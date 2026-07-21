@@ -1,36 +1,36 @@
 {
   "../../../../@crx/manifest": {
-    "file": "assets/crx-manifest.js-CfiRJK7P.js",
+    "file": "assets/crx-manifest.js-D1sL6oQ8.js",
     "name": "crx-manifest.js",
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_content-script.ts-loader-CzcNYhGs.js": {
-    "file": "assets/content-script.ts-loader-CzcNYhGs.js",
-    "src": "_content-script.ts-loader-CzcNYhGs.js"
+  "_content-script.ts-loader-DEp_epPY.js": {
+    "file": "assets/content-script.ts-loader-DEp_epPY.js",
+    "src": "_content-script.ts-loader-DEp_epPY.js"
   },
-  "_globals-DQpCYJoR.js": {
-    "file": "assets/globals-DQpCYJoR.js",
+  "_globals-BxtMv4n-.css": {
+    "file": "assets/globals-BxtMv4n-.css",
+    "src": "_globals-BxtMv4n-.css"
+  },
+  "_globals-DvBbmYn-.js": {
+    "file": "assets/globals-DvBbmYn-.js",
     "name": "globals",
     "css": [
-      "assets/globals-QQIWMMH2.css"
+      "assets/globals-BxtMv4n-.css"
     ]
   },
-  "_globals-QQIWMMH2.css": {
-    "file": "assets/globals-QQIWMMH2.css",
-    "src": "_globals-QQIWMMH2.css"
-  },
   "index.html": {
-    "file": "assets/index.html-WBLkwnNc.js",
+    "file": "assets/index.html-Dy8zGq9f.js",
     "name": "index.html",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_globals-DQpCYJoR.js"
+      "_globals-DvBbmYn-.js"
     ]
   },
   "options.html": {
-    "file": "assets/options.html-B2C4_aet.js",
+    "file": "assets/options.html-Bs9qRIAh.js",
     "name": "options.html",
     "src": "options.html",
     "isEntry": true,
@@ -39,7 +39,7 @@
     ]
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html--cfUsv0p.js",
+    "file": "assets/sidepanel.html-Drz7zpmm.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
@@ -54,7 +54,7 @@
     "isEntry": true
   },
   "src/content/content-script.ts": {
-    "file": "assets/content-script.ts-BU_TW_cv.js",
+    "file": "assets/content-script.ts-CR81lr9_.js",
     "name": "content-script.ts",
     "src": "src/content/content-script.ts",
     "isEntry": true

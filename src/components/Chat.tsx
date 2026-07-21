@@ -13,20 +13,6 @@ const SUGGESTIONS = [
   { icon: FileText, label: "Summarize this page", prompt: "Summarize the key points of this page" },
 ];
 
-/** Decorative gradient blob — sits behind the content layer */
-function GradientBlob({
-  className,
-}: {
-  className?: string;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`pointer-events-none absolute rounded-full blur-3xl opacity-20 ${className ?? ""}`}
-    />
-  );
-}
-
 interface ChatProps {
   conversation: Conversation | null;
   onUpdateConversation: (id: string, patch: Partial<Conversation>) => void;
@@ -97,61 +83,47 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
   }, [isThinking]);
 
   return (
-    <div className="relative flex h-full flex-1 flex-col overflow-hidden">
-      {/* ── Purple ambient gradient backdrop ────────────────────────── */}
-      <GradientBlob className="h-72 w-72 bg-purple-600 -top-20 -left-20" />
-      <GradientBlob className="h-64 w-64 bg-violet-500 bottom-20 -right-16" />
-      <GradientBlob className="h-48 w-48 bg-fuchsia-600 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-
-      {/* ── Chat content ────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {hasMessages ? (
-          <div className="relative flex-1 overflow-hidden">
-            <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
-              <div
-                role="log"
-                aria-relevant="additions"
-                aria-busy={isThinking}
-                className="mx-auto flex max-w-2xl flex-col gap-4"
-              >
-                {messages.map((m) => (
-                  <div key={m.id} data-msg-id={m.id}>
-                    <Message message={m} />
-                  </div>
-                ))}
-                {isThinking && <ThinkingBubble note={statusNote} />}
-              </div>
+    <div className="flex h-full flex-1 flex-col bg-background">
+      {hasMessages ? (
+        <div className="relative flex-1 overflow-hidden">
+          <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+            <div
+              role="log"
+              aria-relevant="additions"
+              aria-busy={isThinking}
+              className="mx-auto flex max-w-2xl flex-col gap-4"
+            >
+              {messages.map((m) => (
+                <div key={m.id} data-msg-id={m.id}>
+                  <Message message={m} />
+                </div>
+              ))}
+              {isThinking && <ThinkingBubble note={statusNote} />}
             </div>
-
-            {!isPinned && (
-              <button
-                onClick={() => scrollToBottom()}
-                className="focus-ring absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground shadow-md transition-transform hover:-translate-y-0.5"
-              >
-                <ArrowDown size={13} className="feather" />
-                {hasUnseenContent ? "New message" : "Jump to latest"}
-                <span className="sr-only">— scroll to bottom of conversation</span>
-              </button>
-            )}
           </div>
-        ) : (
-          <LandingView
-            onPromptSelect={(prompt) => handleSend(prompt)}
-            page={page}
-            setPage={setPage}
-            hasApiKey={hasApiKey}
-            settingsLoaded={loaded}
-          />
-        )}
 
-        <Input
-          onSend={handleSend}
-          disabled={isThinking}
-          isThinking={isThinking}
-          creditsRemaining={490}
-          onUpgrade={() => {}}
+          {!isPinned && (
+            <button
+              onClick={() => scrollToBottom()}
+              className="focus-ring absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground shadow-md transition-transform hover:-translate-y-0.5"
+            >
+              <ArrowDown size={13} className="feather" />
+              {hasUnseenContent ? "New message" : "Jump to latest"}
+              <span className="sr-only">— scroll to bottom of conversation</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <LandingView
+          onPromptSelect={(prompt) => handleSend(prompt)}
+          page={page}
+          setPage={setPage}
+          hasApiKey={hasApiKey}
+          settingsLoaded={loaded}
         />
-      </div>
+      )}
+
+      <Input onSend={handleSend} disabled={isThinking} isThinking={isThinking} />
     </div>
   );
 }
@@ -173,8 +145,8 @@ function LandingView({
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
       {/* Agent activation block */}
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500/30 to-violet-600/20 border border-purple-500/20 shadow-lg shadow-purple-500/10">
-          <Sparkles size={26} className="feather text-purple-400" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15">
+          <Sparkles size={26} className="feather text-primary" />
         </div>
         <div>
           <h1 className="text-[18px] font-semibold text-foreground">Ombre AI</h1>
@@ -193,9 +165,9 @@ function LandingView({
             key={label}
             onClick={() => onPromptSelect(prompt)}
             disabled={!hasApiKey}
-            className="focus-ring group flex items-center gap-2.5 rounded-xl border border-purple-500/15 bg-purple-500/5 px-3.5 py-2.5 text-left text-[13px] text-foreground transition-all hover:-translate-y-0.5 hover:border-purple-500/40 hover:bg-purple-500/10 hover:shadow-sm hover:shadow-purple-500/10 disabled:opacity-40 disabled:hover:translate-y-0"
+            className="focus-ring flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-left text-[13px] text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-secondary disabled:opacity-40 disabled:hover:translate-y-0"
           >
-            <Icon size={15} className="feather text-purple-400 group-hover:text-purple-300 transition-colors" />
+            <Icon size={15} className="feather text-primary" />
             {label}
           </button>
         ))}
@@ -208,7 +180,7 @@ function LandingView({
             key={i}
             onClick={() => setPage(i)}
             className={`h-1.5 rounded-full transition-all ${
-              page === i ? "w-4 bg-purple-500" : "w-1.5 bg-purple-500/25"
+              page === i ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"
             }`}
           />
         ))}
