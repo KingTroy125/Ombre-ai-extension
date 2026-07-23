@@ -1,28 +1,45 @@
-import { AlertTriangle, Bot, User, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Check, Copy, ThumbsDown, ThumbsUp, User } from "lucide-react";
 import type { ChatMessage } from "../lib/types";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
-import { cn, formatTime } from "../lib/utils";
-import { useState } from "react";
+import { cn, formatTime, stripMarkdown } from "../lib/utils";
+import ombreAvatar from "../assets/ombre-avatar.png";
 
-export function Message({ message }: { message: ChatMessage }) {
+function AssistantAvatar() {
+  return (
+    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
+      <img src={ombreAvatar} alt="Ombre AI" className="h-full w-full object-cover" />
+    </div>
+  );
+}
+
+interface MessageProps {
+  message: ChatMessage;
+  onRate?: (messageId: string, rating: "up" | "down") => void;
+}
+
+export function Message({ message, onRate }: MessageProps) {
   const isUser = message.role === "user";
   const isError = !!message.error;
   const [copied, setCopied] = useState(false);
-  const [rating, setRating] = useState<"up" | "down" | null>(null);
 
   const handleCopy = async () => {
+    const clean = stripMarkdown(message.content);
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(clean);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
-      // fallback silently
+      // Clipboard write can fail if the document doesn't have focus at the
+      // instant this runs — silently no-op rather than throwing, since
+      // there's nothing more useful to do from here.
     }
   };
 
-  // Defensive: only show actions for assistant messages that are not errors
-  const showActions = !isUser && !isError;
+  const handleRate = (rating: "up" | "down") => {
+    onRate?.(message.id, rating);
+  };
 
   return (
     <div
@@ -31,14 +48,13 @@ export function Message({ message }: { message: ChatMessage }) {
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
-      <div
-        className={cn(
-          "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-          isUser ? "bg-secondary text-foreground" : "bg-primary text-primary-foreground"
-        )}
-      >
-        {isUser ? <User size={14} className="feather" /> : <Bot size={14} className="feather" />}
-      </div>
+      {isUser ? (
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+          <User size={14} className="feather" />
+        </div>
+      ) : (
+        <AssistantAvatar />
+      )}
 
       <div className={cn("flex max-w-[82%] flex-col gap-1", isUser ? "items-end" : "items-start")}>
         <div
@@ -63,64 +79,40 @@ export function Message({ message }: { message: ChatMessage }) {
           )}
         </div>
 
-        {/* Actions row: copy + rate + timestamp */}
         <div className="flex items-center gap-2 px-1">
-          {showActions && (
-            <>
-              {/* Copy */}
+          <span className="text-[10.5px] text-muted-foreground">{formatTime(message.createdAt)}</span>
+
+          {!isUser && !isError && (
+            <div className="flex items-center gap-0.5">
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                title="Copy"
-                aria-label="Copy message"
+                title={copied ? "Copied" : "Copy"}
+                className="focus-ring flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
-                {copied ? (
-                  <Check size={13} className="feather text-emerald-500" />
-                ) : (
-                  <Copy size={13} className="feather" />
-                )}
-                {copied ? "Copied" : "Copy"}
+                {copied ? <Check size={11} className="feather" /> : <Copy size={11} className="feather" />}
               </button>
-
-              <div className="h-3 w-px bg-border/60" />
-
-              {/* Rate */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={() => setRating(rating === "up" ? null : "up")}
-                  className={cn(
-                    "rounded-md p-1 transition-colors hover:bg-muted",
-                    rating === "up"
-                      ? "text-emerald-500 bg-emerald-500/10"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Helpful"
-                  aria-label="Thumbs up"
-                >
-                  <ThumbsUp size={13} className="feather" />
-                </button>
-                <button
-                  onClick={() => setRating(rating === "down" ? null : "down")}
-                  className={cn(
-                    "rounded-md p-1 transition-colors hover:bg-muted",
-                    rating === "down"
-                      ? "text-[#ff8a8f] bg-[#ff8a8f]/10"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title="Not helpful"
-                  aria-label="Thumbs down"
-                >
-                  <ThumbsDown size={13} className="feather" />
-                </button>
-              </div>
-
-              <div className="h-3 w-px bg-border/60" />
-            </>
+              <button
+                onClick={() => handleRate("up")}
+                title="Good response"
+                className={cn(
+                  "focus-ring flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-secondary",
+                  message.rating === "up" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ThumbsUp size={11} className="feather" fill={message.rating === "up" ? "currentColor" : "none"} />
+              </button>
+              <button
+                onClick={() => handleRate("down")}
+                title="Bad response"
+                className={cn(
+                  "focus-ring flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-secondary",
+                  message.rating === "down" ? "text-destructive" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ThumbsDown size={11} className="feather" fill={message.rating === "down" ? "currentColor" : "none"} />
+              </button>
+            </div>
           )}
-
-          <span className="text-[10.5px] text-muted-foreground">
-            {message.createdAt ? formatTime(message.createdAt) : ""}
-          </span>
         </div>
       </div>
     </div>
@@ -131,9 +123,7 @@ export function ThinkingBubble({ note }: { note?: string | null }) {
   const words = note ? [note] : ["Thinking", "Reasoning", "Considering"];
   return (
     <div className="flex animate-fade-in gap-2.5">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <Bot size={14} className="feather" />
-      </div>
+      <AssistantAvatar />
       <div className="flex flex-col gap-1">
         <div className="flex items-center rounded-2xl rounded-tl-sm bg-card px-3.5 py-3">
           <ThinkingIndicator words={words} />

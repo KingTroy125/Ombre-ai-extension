@@ -7,6 +7,8 @@ export interface ChatMessage {
   createdAt: number;
   pending?: boolean;
   error?: string;
+  /** Thumbs up/down feedback the person gave on an assistant message. */
+  rating?: "up" | "down";
 }
 
 export interface Conversation {

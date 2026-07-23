@@ -45,6 +45,14 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
     sendMessage(text);
   };
 
+  const handleRate = (messageId: string, rating: "up" | "down") => {
+    if (!conversation) return;
+    const updatedMessages = conversation.messages.map((m) =>
+      m.id === messageId ? { ...m, rating: m.rating === rating ? undefined : rating } : m
+    );
+    onUpdateConversation(conversation.id, { messages: updatedMessages });
+  };
+
   useEffect(() => {
     const conversationChanged = conversation?.id !== lastConversationId.current;
     lastConversationId.current = conversation?.id ?? null;
@@ -95,7 +103,7 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
             >
               {messages.map((m) => (
                 <div key={m.id} data-msg-id={m.id}>
-                  <Message message={m} />
+                  <Message message={m} onRate={handleRate} />
                 </div>
               ))}
               {isThinking && <ThinkingBubble note={statusNote} />}

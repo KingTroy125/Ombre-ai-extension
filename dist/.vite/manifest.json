@@ -5,32 +5,32 @@
     "src": "../../../../@crx/manifest",
     "isEntry": true
   },
-  "_content-script.ts-loader-DEp_epPY.js": {
-    "file": "assets/content-script.ts-loader-DEp_epPY.js",
-    "src": "_content-script.ts-loader-DEp_epPY.js"
+  "_content-script.ts-loader-DRnx3VJm.js": {
+    "file": "assets/content-script.ts-loader-DRnx3VJm.js",
+    "src": "_content-script.ts-loader-DRnx3VJm.js"
   },
-  "_globals-BxtMv4n-.css": {
-    "file": "assets/globals-BxtMv4n-.css",
-    "src": "_globals-BxtMv4n-.css"
-  },
-  "_globals-DvBbmYn-.js": {
-    "file": "assets/globals-DvBbmYn-.js",
+  "_globals-B_aky6oB.js": {
+    "file": "assets/globals-B_aky6oB.js",
     "name": "globals",
     "css": [
-      "assets/globals-BxtMv4n-.css"
+      "assets/globals-XpkS3rJY.css"
     ]
   },
+  "_globals-XpkS3rJY.css": {
+    "file": "assets/globals-XpkS3rJY.css",
+    "src": "_globals-XpkS3rJY.css"
+  },
   "index.html": {
-    "file": "assets/index.html-Dy8zGq9f.js",
+    "file": "assets/index.html-Dm85_5Ej.js",
     "name": "index.html",
     "src": "index.html",
     "isEntry": true,
     "imports": [
-      "_globals-DvBbmYn-.js"
+      "_globals-B_aky6oB.js"
     ]
   },
   "options.html": {
-    "file": "assets/options.html-Bs9qRIAh.js",
+    "file": "assets/options.html-usmrXL8z.js",
     "name": "options.html",
     "src": "options.html",
     "isEntry": true,
@@ -39,13 +39,20 @@
     ]
   },
   "sidepanel.html": {
-    "file": "assets/sidepanel.html-Drz7zpmm.js",
+    "file": "assets/sidepanel.html-DqaP6ZL-.js",
     "name": "sidepanel.html",
     "src": "sidepanel.html",
     "isEntry": true,
     "imports": [
       "sidepanel.html"
+    ],
+    "assets": [
+      "assets/ombre-avatar-4SyTX3f3.png"
     ]
+  },
+  "src/assets/ombre-avatar.png": {
+    "file": "assets/ombre-avatar-4SyTX3f3.png",
+    "src": "src/assets/ombre-avatar.png"
   },
   "src/background/service-worker.ts": {
     "file": "assets/service-worker.ts-D1C-tLNE.js",
@@ -54,7 +61,7 @@
     "isEntry": true
   },
   "src/content/content-script.ts": {
-    "file": "assets/content-script.ts-CR81lr9_.js",
+    "file": "assets/content-script.ts-C4c_qEA2.js",
     "name": "content-script.ts",
     "src": "src/content/content-script.ts",
     "isEntry": true
