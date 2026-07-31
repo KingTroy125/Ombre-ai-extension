@@ -4,7 +4,7 @@ import type { ChatMessage } from "../lib/types";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { cn, formatTime, stripMarkdown } from "../lib/utils";
-import ombreAvatar from "../assets/ombre-avatar.png";
+import ombreAvatar from "../assets/ombre-avatar.jpg";
 
 function AssistantAvatar() {
   return (

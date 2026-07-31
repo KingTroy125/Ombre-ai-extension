@@ -1,32 +1,22 @@
-# Changed files only — avatar + copy/rate feature
+# Change: new avatar image
 
-These 6 files are everything that changed to add the new avatar image and the
-per-message Copy / thumbs-up / thumbs-down actions. Drop each one into your
-existing project at the same relative path, overwriting what's there, then
-rebuild.
-
-## Files included
+Swapped the AI avatar to the new gradient image you provided. Only these 3
+files changed — drop them into your project at the same paths, overwriting
+what's there, then rebuild.
 
 | Path | What changed |
 |---|---|
-| `src/assets/ombre-avatar.png` | New — the gradient blob avatar image (256×256), used by the popup/side panel. |
-| `src/lib/types.ts` | Added `rating?: "up" \| "down"` to `ChatMessage`. |
-| `src/lib/utils.ts` | Added `stripMarkdown()` — strips markdown syntax so Copy pastes clean plain text. |
-| `src/components/Message.tsx` | Assistant messages now show the image avatar instead of a bot icon, plus a Copy / 👍 / 👎 action row under each AI reply. |
-| `src/components/Chat.tsx` | Wires a `handleRate()` callback that persists the thumbs up/down choice to the conversation. |
-| `src/content/content-script.ts` | Same treatment for the edge panel (the panel injected into web pages): image avatar embedded as a base64 data URI (kept small/inline since this script runs on every page), plus matching Copy/rate buttons on its messages. |
+| `src/assets/ombre-avatar.png` | Replaced — 256×256, used by the popup/side panel (React). |
+| `src/assets/ombre-avatar-small.png` | Replaced — 96×96 source used to generate the embedded version below (kept in the repo for reference/regeneration; not directly imported anywhere). |
+| `src/content/content-script.ts` | The embedded base64 avatar constant (`OMBRE_AVATAR_DATA_URL`) updated to the new small image — this is what the edge panel actually renders, inlined so the content script doesn't need a separate asset request. |
 
 ## How to apply
 
-1. Copy these 6 files into your project, replacing the existing ones at the same paths.
+1. Copy these 3 files into your project, replacing the existing ones at the same paths.
 2. From your project root:
    ```bash
    npm run build
    ```
-3. Reload the unpacked extension in `chrome://extensions` from the fresh `dist/` folder, and refresh any tabs that already had it injected.
+3. Reload the unpacked extension in `chrome://extensions` and refresh any tabs that already had it injected.
 
-## Notes
-
-- Thumbs up/down toggles off if you click the same one again, and persists across reopening the popup/side panel (stored on the message itself in `chrome.storage`).
-- Copy strips markdown formatting first, so it pastes clean text rather than literal `**asterisks**`.
-- No other files were touched — everything else in your project is unaffected.
+No other files were touched.
