@@ -44,7 +44,7 @@ function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
 function safeStorageSet(items: Record<string, unknown>): void {
   if (!isExtensionContextValid()) return;
   try {
-    chrome.storage.local.set(items).catch(() => { });
+    chrome.storage.local.set(items).catch(() => {});
   } catch {
     // context died mid-call — nothing more we can do, next save attempt will just no-op too
   }
@@ -169,8 +169,9 @@ function renderPanel({ query, response, error }: ContextEvent) {
     </div>
     <div class="body">
       ${query ? `<div class="query">${escapeHtml(query)}</div>` : ""}
-      <div class="${error ? "answer error" : "answer"}">${error ? escapeHtml(error) : renderMarkdownLite(response || "")
-    }</div>
+      <div class="${error ? "answer error" : "answer"}">${
+        error ? escapeHtml(error) : renderMarkdownLite(response || "")
+      }</div>
     </div>
   `;
 
@@ -293,6 +294,48 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
+// Some host pages attach a global (often capture-phase) keydown listener
+// for the spacebar — video play/pause, "page down" scrolling, slide
+// navigation, etc. — that's meant to skip firing while a form field is
+// focused, by checking document.activeElement. But our inputs live inside
+// a shadow root, and Shadow DOM encapsulation means document.activeElement
+// only ever exposes the shadow *host* element (a plain <div>), never the
+// actual <textarea> focused inside it — so that "skip if a field is
+// focused" check silently fails, and the host page ends up calling
+// preventDefault() on the space before our textarea ever gets to type it.
+// Fix: insert the character ourselves, directly, regardless of whatever an
+// earlier (host-page) listener already did to the event.
+function insertTextAtCursor(el: HTMLTextAreaElement, text: string) {
+  const proto = window.HTMLTextAreaElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? el.value.length;
+  const newValue = el.value.slice(0, start) + text + el.value.slice(end);
+
+  if (nativeSetter) nativeSetter.call(el, newValue);
+  else el.value = newValue;
+
+  const caret = start + text.length;
+  try {
+    el.setSelectionRange(caret, caret);
+  } catch {
+    // ignore — some input types don't support selectionRange
+  }
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** Attach to any of our own textareas to guarantee the spacebar always
+ *  types a space, even on host pages that try to hijack it (see above). */
+function guaranteeSpaceKeyWorks(el: HTMLTextAreaElement) {
+  el.addEventListener("keydown", (e) => {
+    if (e.key !== " " && e.code !== "Space") return;
+    e.preventDefault();
+    e.stopPropagation();
+    insertTextAtCursor(el, " ");
+  });
+}
+
+
 // ── Shared thinking-indicator markup (morphing sparkle + cycling word) ────
 // Used by both the edge panel's chat view and the selection-toolbar result
 // card's loading state, so the two vanilla-DOM surfaces match the popup/side
@@ -335,7 +378,7 @@ function setThinkingWord(root: ParentNode, word: string) {
 /** Starts (or restarts) cycling the word inside a rendered thinking-indicator.
  *  Returns a stop function; call it once the indicator is removed/replaced. */
 function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 2600): () => void {
-  if (words.length <= 1) return () => { };
+  if (words.length <= 1) return () => {};
   let index = 0;
   const timer = window.setInterval(() => {
     index = (index + 1) % words.length;
@@ -940,16 +983,19 @@ function initEdgePanel() {
         (m) => `
       <div class="row ${m.role}" data-msg-id="${m.id}">
         <div class="avatar ${m.role}">
-          ${m.role === "user"
-            ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
-            : `<img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" />`
+          ${
+            m.role === "user"
+              ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
+              : `<img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" />`
           }
         </div>
         <div class="col">
-          <div class="bubble ${m.role}${m.error ? " error" : ""}">${m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
+          <div class="bubble ${m.role}${m.error ? " error" : ""}">${
+            m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
           }</div>
-          ${m.role === "assistant" && !m.error
-            ? `<div class="msg-actions">
+          ${
+            m.role === "assistant" && !m.error
+              ? `<div class="msg-actions">
                   <button class="msg-copy" data-copy-id="${m.id}" title="Copy">
                     <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
@@ -960,7 +1006,7 @@ function initEdgePanel() {
                     <svg viewBox="0 0 24 24" fill="${m.rating === "down" ? "currentColor" : "none"}"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
                   </button>
                 </div>`
-            : ""
+              : ""
           }
         </div>
       </div>`
@@ -1103,6 +1149,7 @@ function initEdgePanel() {
       send();
     }
   });
+  guaranteeSpaceKeyWorks(textarea);
   sendBtn.addEventListener("click", send);
 
   // ── Voice input (Web Speech API) ────────────────────────────────────────
@@ -1443,6 +1490,9 @@ function initSelectionPopup() {
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
   toolbar.innerHTML = `
+    <span class="toolbar-badge">
+      <svg viewBox="0 0 24 24"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
+    </span>
     <button class="tbtn primary" data-action="ask">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
       Ask Ombre
@@ -1669,12 +1719,13 @@ function initSelectionPopup() {
         <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
         Copy
       </button>
-      ${lastIsEditable
-        ? `<button class="card-action primary" data-act="replace">
+      ${
+        lastIsEditable
+          ? `<button class="card-action primary" data-act="replace">
               <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
               Replace
             </button>`
-        : ""
+          : ""
       }
     `;
     cardFooter.querySelector('[data-act="copy"]')?.addEventListener("click", async (e) => {
@@ -1775,6 +1826,7 @@ function initSelectionPopup() {
         submit();
       }
     });
+    guaranteeSpaceKeyWorks(input);
   }
 
   function runAction(action: SelectionAction) {
@@ -1825,7 +1877,7 @@ function initSelectionPopup() {
       // We're inside an iframe (e.g. Gmail's compose box) where the edge
       // panel doesn't exist — ask the background worker to relay this to
       // the top frame, which does have it.
-      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => { });
+      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => {});
     }
   });
 }
