@@ -24,4 +24,3 @@ There is no server component owned by this project — "the backend" here means 
 - No automated test suite yet (see [08 · Testing Strategy](./08_Testing_Strategy.md) for the plan to close this gap).
 
 ---
-◀ [Documentation index](../README.md#documentation) · Next: [Tech Stack Selection](./Tech_Stack_Selection.md) ▶
