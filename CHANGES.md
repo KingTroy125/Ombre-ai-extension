@@ -1,22 +1,31 @@
-# Change: new avatar image
+# Change: removed the border-beam effect
 
-Swapped the AI avatar to the new gradient image you provided. Only these 3
-files changed — drop them into your project at the same paths, overwriting
-what's there, then rebuild.
+The animated border beam added to the result card rendered incorrectly in
+practice — checking your screenshot's actual pixel data, the beam ring was
+only partially visible right along the top edge, cutting across the header
+area (title + close button) instead of sitting cleanly at the card's outer
+border. Rather than iterate further on a decorative effect that isn't
+working reliably, this reverts it entirely.
+
+Only **1 file** changed.
 
 | Path | What changed |
 |---|---|
-| `src/assets/ombre-avatar.png` | Replaced — 256×256, used by the popup/side panel (React). |
-| `src/assets/ombre-avatar-small.png` | Replaced — 96×96 source used to generate the embedded version below (kept in the repo for reference/regeneration; not directly imported anywhere). |
-| `src/content/content-script.ts` | The embedded base64 avatar constant (`OMBRE_AVATAR_DATA_URL`) updated to the new small image — this is what the edge panel actually renders, inlined so the content script doesn't need a separate asset request. |
+| `src/content/content-script.ts` | Removed the `.card::before` beam rule, its `@keyframes`, the `@property` declaration, and the `isolation: isolate` it needed — restoring the plain `1px solid rgba(255,255,255,0.08)` card border from before. Verified the rebuilt file is byte-for-byte identical to the pre-beam version (matching compiled-chunk hash). |
 
 ## How to apply
 
-1. Copy these 3 files into your project, replacing the existing ones at the same paths.
+1. Copy this file into your project at `src/content/content-script.ts`, replacing the existing one.
 2. From your project root:
    ```bash
    npm run build
    ```
 3. Reload the unpacked extension in `chrome://extensions` and refresh any tabs that already had it injected.
 
-No other files were touched.
+## If "doesn't show right" meant something else
+
+I read your screenshot as the beam cutting across the header — if instead
+you meant the numbered list text getting cut off at the bottom of the card
+(item 4 trails off without a clear "there's more, scroll down" cue), let me
+know and I'll fix that separately — it's a different, unrelated issue in
+the card's scroll/overflow behavior.
