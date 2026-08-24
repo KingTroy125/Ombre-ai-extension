@@ -44,4 +44,3 @@ Two bridges exist because the edge panel (top-frame only) sometimes needs to be 
 - `OMBRE_ADD_TO_CHAT` message — used when "Add to chat" is clicked from inside an iframe; the background worker relays it to `frameId: 0` of the same tab, where the real edge panel lives.
 
 ---
-◀ [Tech Stack Selection](./Tech_Stack_Selection.md) · [Index](../README.md#documentation) · Next: [API Endpoints](./03_API_Endpoints.md) ▶
