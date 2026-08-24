@@ -1289,14 +1289,14 @@ interface RuntimeChatEvent {
 }
 
 // ── Text-selection popup ──────────────────────────────────────────────────
-// Highlight any text on a page and a small toolbar appears above the
-// selection: Ask Ombre AI, Improve, Rephrase, Add More. Each sends the
-// selected text through the same TOQAN_CHAT pipeline the rest of the
-// extension uses, then shows the result inline with Copy / Replace actions.
+// Highlight any text on a page and a compact toolbar appears above the
+// selection: Ask Ombre + More. More opens a menu of writing actions.
+// Each sends the selected text through the same TOQAN_CHAT pipeline the
+// rest of the extension uses, then shows the result inline with Copy / Replace.
 
 const SELECTION_HOST_ID = "ombre-ai-selection-host";
 
-type SelectionAction = "ask" | "improve" | "rephrase" | "addmore";
+type SelectionAction = "ask" | "improve" | "rephrase" | "addmore" | "explain" | "shorter";
 
 const SELECTION_PROMPTS: Record<SelectionAction, (text: string) => string> = {
   ask: (text) => text,
@@ -1306,6 +1306,10 @@ const SELECTION_PROMPTS: Record<SelectionAction, (text: string) => string> = {
     `Rephrase the following text in a different way while keeping the same meaning. Return ONLY the rephrased text with no preamble, quotes, or explanation:\n\n${text}`,
   addmore: (text) =>
     `Expand on the following text with more relevant detail, keeping the same tone and style. Return ONLY the expanded text with no preamble, quotes, or explanation:\n\n${text}`,
+  explain: (text) =>
+    `Explain the following text clearly and concisely. Return ONLY the explanation with no preamble:\n\n${text}`,
+  shorter: (text) =>
+    `Make the following text shorter and more concise while keeping the meaning. Return ONLY the shortened text with no preamble, quotes, or explanation:\n\n${text}`,
 };
 
 function initSelectionPopup() {
@@ -1326,34 +1330,19 @@ function initSelectionPopup() {
       z-index: 2147483647;
       display: flex;
       align-items: center;
-      gap: 2px;
-      padding: 5px;
-      border-radius: 13px;
+      gap: 4px;
+      height: 38px;
+      padding: 0 6px;
+      border-radius: 10px;
       background: #18181b;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.07);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08);
       opacity: 0;
       transform: translateY(6px) scale(0.97);
       transition: opacity 0.16s ease, transform 0.16s ease;
       pointer-events: none;
-      overflow: visible;
     }
-    .toolbar.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-
-    .toolbar-badge {
-      position: absolute;
-      top: -12px;
-      left: 12px;
-      width: 25px;
-      height: 25px;
-      border-radius: 8px;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      pointer-events: none;
-    }
-    .toolbar-badge svg { width: 13px; height: 13px; fill: #6c63ff; stroke: none; }
+    .toolbar.visible { opacity: 1; transform: none; pointer-events: auto; }
+    .toolbar.menu-open { display: none; }
 
     .tbtn {
       display: flex;
@@ -1361,11 +1350,11 @@ function initSelectionPopup() {
       gap: 6px;
       border: none;
       background: transparent;
-      color: #d4d4d8;
-      font-size: 12.5px;
+      color: #e0e0e5;
+      font-size: 12px;
       font-weight: 500;
       padding: 7px 11px;
-      border-radius: 9px;
+      border-radius: 7px;
       cursor: pointer;
       white-space: nowrap;
       transition: background 0.12s, color 0.12s;
@@ -1373,9 +1362,87 @@ function initSelectionPopup() {
     .tbtn:hover { background: rgba(255,255,255,0.08); color: #fff; }
     .tbtn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-    .tbtn.primary { background: #6c63ff; color: #fff; font-weight: 600; }
+    .tbtn.primary {
+      height: 30px;
+      padding: 0 12px;
+      gap: 7px;
+      background: #6c63ff;
+      color: #fff;
+      font-weight: 600;
+    }
     .tbtn.primary:hover { background: #7d75ff; }
     .tbtn.primary svg { fill: #fff; stroke: none; }
+
+    .tbtn.more {
+      height: 30px;
+      padding: 0 8px;
+      gap: 5px;
+    }
+    .tbtn.more[aria-expanded="true"] { background: rgba(255,255,255,0.08); }
+    .tbtn.more svg circle { fill: currentColor; stroke: none; }
+
+    .more-menu {
+      position: fixed;
+      z-index: 2147483647;
+      width: 230px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      padding: 8px;
+      border-radius: 10px;
+      background: #18181b;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .more-menu.visible { display: flex; }
+
+    .more-menu-title {
+      height: 30px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b8b95;
+      letter-spacing: 0.01em;
+    }
+
+    .more-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      height: 36px;
+      padding: 0 10px;
+      border: none;
+      background: transparent;
+      color: #e0e0e5;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s, color 0.12s;
+    }
+    .more-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .more-item svg {
+      width: 15px;
+      height: 15px;
+      stroke: #b8b8c2;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .more-item:hover svg { stroke: #fff; }
+
+    .more-divider {
+      height: 1px;
+      margin: 2px 4px;
+      background: rgba(255,255,255,0.08);
+    }
 
     .card {
       position: fixed;
@@ -1490,27 +1557,45 @@ function initSelectionPopup() {
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
   toolbar.innerHTML = `
-    <span class="toolbar-badge">
-      <svg viewBox="0 0 24 24"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
-    </span>
     <button class="tbtn primary" data-action="ask">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
       Ask Ombre
     </button>
-    <button class="tbtn" data-action="improve">
+    <button class="tbtn more" type="button" aria-expanded="false" aria-haspopup="menu">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      More
+    </button>
+  `;
+
+  const moreMenu = document.createElement("div");
+  moreMenu.className = "more-menu";
+  moreMenu.setAttribute("role", "menu");
+  moreMenu.setAttribute("aria-label", "More options");
+  moreMenu.innerHTML = `
+    <div class="more-menu-title">More options</div>
+    <button class="more-item" data-action="improve" role="menuitem">
       <svg viewBox="0 0 24 24"><path d="M15 4V2m0 4V4m-4.5 3.5L9 6m1.5 1.5L9 9M4 15l11-11 3 3L7 18l-4 1 1-4z"/></svg>
       Improve
     </button>
-    <button class="tbtn" data-action="rephrase">
-      <svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg>
-      Rephrase
+    <button class="more-item" data-action="explain" role="menuitem">
+      <svg viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+      Explain this
     </button>
-    <button class="tbtn" data-action="addmore">
+    <button class="more-item" data-action="shorter" role="menuitem">
+      <svg viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      Make shorter
+    </button>
+    <button class="more-item" data-action="addmore" role="menuitem">
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       Add more
     </button>
-    <button class="tbtn addchat" title="Send to chat panel to ask more there">
-      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <button class="more-item" data-action="rephrase" role="menuitem">
+      <svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg>
+      Rephrase
+    </button>
+    <div class="more-divider"></div>
+    <button class="more-item addchat" role="menuitem" title="Send to chat panel to ask more there">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 8v6M9 11h6"/></svg>
       Add to chat
     </button>
   `;
@@ -1528,7 +1613,7 @@ function initSelectionPopup() {
     <div class="card-footer" style="display:none;"></div>
   `;
 
-  root.append(style, toolbar, card);
+  root.append(style, toolbar, moreMenu, card);
 
   const cardBody = card.querySelector(".card-body") as HTMLDivElement;
   const cardFooter = card.querySelector(".card-footer") as HTMLDivElement;
@@ -1542,8 +1627,16 @@ function initSelectionPopup() {
   let lastFieldEnd = 0;
   let activeConversationId: string | null = null;
 
+  const moreBtn = toolbar.querySelector(".tbtn.more") as HTMLButtonElement;
+
+  function hideMoreMenu() {
+    moreMenu.classList.remove("visible");
+    toolbar.classList.remove("menu-open");
+    moreBtn.setAttribute("aria-expanded", "false");
+  }
   function hideToolbar() {
     toolbar.classList.remove("visible");
+    hideMoreMenu();
   }
   function hideCard() {
     card.classList.remove("visible");
@@ -1616,6 +1709,7 @@ function initSelectionPopup() {
       hideToolbar();
       return;
     }
+    hideMoreMenu();
     toolbar.classList.add("visible");
     requestAnimationFrame(() => {
       positionAbove(toolbar, rect, toolbar.offsetWidth, toolbar.offsetHeight);
@@ -1623,7 +1717,7 @@ function initSelectionPopup() {
   }
 
   function checkSelection() {
-    if (contextLostFired || card.classList.contains("visible")) return; // don't reposition while viewing a result
+    if (contextLostFired || card.classList.contains("visible") || moreMenu.classList.contains("visible")) return;
 
     // 1) Plain <input>/<textarea> selection — checked first since a focused
     // field always wins over any stale page-text selection.
@@ -1671,7 +1765,10 @@ function initSelectionPopup() {
   // input/textarea selections too), but mouseup/keyup make drag-to-select
   // and keyboard selection inside form fields reliable across the board.
   document.addEventListener("selectionchange", scheduleCheckSelection);
-  document.addEventListener("mouseup", scheduleCheckSelection);
+  document.addEventListener("mouseup", (e) => {
+    if (isWithinOwnUI(e.target as Node)) return;
+    scheduleCheckSelection();
+  });
   document.addEventListener("keyup", (e) => {
     if (e.shiftKey || e.key === "Shift") scheduleCheckSelection();
   });
@@ -1680,9 +1777,9 @@ function initSelectionPopup() {
     if (isWithinOwnUI(e.target as Node)) return;
     hideToolbar();
     // Note: the result card is deliberately NOT closed here. Once Ask/
-    // Improve/Rephrase/Add more has produced an answer, only the card's own
-    // close (X) button dismisses it — clicking elsewhere on the page (to
-    // read context, copy something else, etc.) no longer loses the answer.
+    // Improve/etc. has produced an answer, only the card's own close (X)
+    // button dismisses it — clicking elsewhere on the page (to read
+    // context, copy something else, etc.) no longer loses the answer.
   });
   window.addEventListener("scroll", hideToolbar, true);
   document.addEventListener("keydown", (e) => {
@@ -1866,7 +1963,29 @@ function initSelectionPopup() {
     btn.addEventListener("click", () => runAction(btn.dataset.action as SelectionAction));
   });
 
-  const addChatBtn = toolbar.querySelector(".addchat") as HTMLButtonElement;
+  moreMenu.querySelectorAll<HTMLButtonElement>(".more-item[data-action]").forEach((btn) => {
+    btn.addEventListener("click", () => runAction(btn.dataset.action as SelectionAction));
+  });
+
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !moreMenu.classList.contains("visible");
+    if (!open) {
+      hideMoreMenu();
+      return;
+    }
+    toolbar.classList.add("menu-open");
+    moreMenu.classList.add("visible");
+    moreBtn.setAttribute("aria-expanded", "true");
+    const rect = lastFieldEl ? lastFieldEl.getBoundingClientRect() : lastRange?.getBoundingClientRect();
+    if (rect) {
+      requestAnimationFrame(() => {
+        positionAbove(moreMenu, rect, moreMenu.offsetWidth || 230, moreMenu.offsetHeight);
+      });
+    }
+  });
+
+  const addChatBtn = moreMenu.querySelector(".addchat") as HTMLButtonElement;
   addChatBtn.addEventListener("click", () => {
     if (contextLostFired || !lastSelectedText) return;
     hideToolbar();
