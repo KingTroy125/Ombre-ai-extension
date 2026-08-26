@@ -33,6 +33,10 @@ function safeSendMessage(message: unknown): Promise<unknown> {
   }
 }
 
+// ── Quick‑bar references (for /‑key global handler) ───────────────────────
+let dock: HTMLDivElement | null = null;
+let quickBarOpen = false;
+
 function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
   if (!isExtensionContextValid()) return Promise.resolve({});
   try {
@@ -2201,6 +2205,16 @@ function initSelectionPopup() {
       hideToolbar();
       hideCard();
     }
+    if (e.key === "/" && quickBarOpen) {
+      e.preventDefault();
+      if (dock) {
+        const input = dock.querySelector("input") as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.value = "/";
+        }
+      }
+    }
   });
 
   cardCloseBtn.addEventListener("click", hideCard);
@@ -2744,7 +2758,7 @@ function initQuickTool() {
     }
   `;
 
-  const dock = document.createElement("div");
+  dock = document.createElement("div");
   dock.className = "dock";
   dock.innerHTML = `
     <div class="note-card" role="dialog" aria-label="Note">
@@ -2911,14 +2925,16 @@ function initQuickTool() {
   function openBar() {
     pillEl.style.display = "none";
     pillEl.setAttribute("aria-expanded", "true");
-    dock.classList.add("expanded");
+    dock!.classList.add("expanded");
+    quickBarOpen = true;
     barEl.classList.add("open");
     refreshNotes();
     inputEl.focus();
   }
 
   function closeBar() {
-    dock.classList.remove("expanded");
+    dock!.classList.remove("expanded");
+    quickBarOpen = false;
     barEl.classList.remove("open", "searching", "saved");
     resultsEl.classList.remove("open");
     inputEl.value = "";
@@ -3027,7 +3043,7 @@ function initQuickTool() {
   });
 
   onContextLost.push(() => {
-    dock.style.display = "none";
+    dock!.style.display = "none";
   });
 }
 
