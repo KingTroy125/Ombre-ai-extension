@@ -1,4 +1,4 @@
-import { MessageSquarePlus, Settings as SettingsIcon, Trash2 } from "lucide-react";
+import { MessageSquarePlus, NotebookPen, Settings as SettingsIcon, Trash2 } from "lucide-react";
 import type { Conversation } from "../lib/types";
 import { cn } from "../lib/utils";
 
@@ -8,10 +8,11 @@ interface SidebarProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onOpenNotes: () => void;
   onOpenSettings: () => void;
 }
 
-export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onOpenSettings }: SidebarProps) {
+export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, onOpenNotes, onOpenSettings }: SidebarProps) {
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex items-center justify-between px-3 pb-2 pt-3">
@@ -70,6 +71,13 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
       </div>
 
       <div className="border-t border-sidebar-border px-2.5 py-2">
+        <button
+          onClick={onOpenNotes}
+          className="focus-ring flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+        >
+          <NotebookPen size={14} className="feather" />
+          Notes
+        </button>
         <button
           onClick={onOpenSettings}
           className="focus-ring flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
