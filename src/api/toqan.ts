@@ -23,6 +23,20 @@ export async function sendChat(messages: ChatMessage[], conversationId: string):
   });
 }
 
+/**
+ * Asks the background worker to cancel the in-flight generation for this
+ * conversation (aborts any pending fetch/polling). In dev mode outside the
+ * extension shell there is no worker to stop — just mirror the event so
+ * local tooling can react.
+ */
+export function stopChat(conversationId?: string): void {
+  if (!hasRuntime) {
+    window.dispatchEvent(new CustomEvent("toqan:mock-stop", { detail: { conversationId } }));
+    return;
+  }
+  chrome.runtime.sendMessage({ type: "TOQAN_STOP", conversationId });
+}
+
 export function pingBackground(): Promise<boolean> {
   if (!hasRuntime) return Promise.resolve(false);
   return new Promise((resolve) => {

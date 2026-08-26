@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { onRuntimeEvent, sendChat } from "../api/toqan";
+import { onRuntimeEvent, sendChat, stopChat } from "../api/toqan";
 import type { ChatMessage, Conversation } from "../lib/types";
 import { newId, titleFromMessage } from "../lib/utils";
 
@@ -14,6 +14,9 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const activeConvoIdRef = useRef<string | null>(conversation?.id ?? null);
   const conversationsRef = useRef<Map<string, ChatMessage[]>>(new Map());
+  // Conversations whose generation the user explicitly stopped — late
+  // replies/errors from those runs are dropped instead of appended.
+  const stoppedConvosRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     activeConvoIdRef.current = conversation?.id ?? null;
@@ -36,6 +39,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   useEffect(() => {
     const unsubscribe = onRuntimeEvent((event) => {
       if (event.type === "TOQAN_REPLY") {
+        if (stoppedConvosRef.current.delete(event.conversationId)) return;
         setIsThinking(false);
         setStatusNote(null);
         appendMessage(event.conversationId, {
@@ -45,11 +49,13 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
           createdAt: Date.now(),
         });
       } else if (event.type === "TOQAN_OVERLOADED") {
+        if (stoppedConvosRef.current.delete(event.conversationId)) return;
         setStatusNote("Ombre AI is busy — retrying…");
       } else if (event.type === "TOQAN_ERROR") {
+        const targetId = event.conversationId ?? activeConvoIdRef.current ?? "";
+        if (stoppedConvosRef.current.delete(targetId)) return;
         setIsThinking(false);
         setStatusNote(null);
-        const targetId = event.conversationId ?? activeConvoIdRef.current ?? "";
         appendMessage(targetId, {
           id: newId(),
           role: "assistant",
@@ -102,5 +108,13 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
     [conversation, onEnsureConversation, onUpdateConversation, appendMessage]
   );
 
-  return { sendMessage, isThinking, statusNote };
+  const stopGeneration = useCallback(() => {
+    const convoId = activeConvoIdRef.current;
+    if (convoId) stoppedConvosRef.current.add(convoId);
+    stopChat(convoId ?? undefined);
+    setIsThinking(false);
+    setStatusNote(null);
+  }, []);
+
+  return { sendMessage, stopGeneration, isThinking, statusNote };
 }

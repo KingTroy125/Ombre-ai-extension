@@ -34,9 +34,11 @@ export const DEFAULT_SETTINGS: ToqanSettings = {
 /** Messages exchanged between UI (popup/sidepanel/content) and the background service worker. */
 export type RuntimeMessage =
   | { type: "TOQAN_CHAT"; messages: ChatMessage[]; conversationId: string; tabId?: number }
+  | { type: "TOQAN_STOP"; conversationId?: string }
   | { type: "TOQAN_PING" }
   | { type: "OPEN_SETTINGS" }
-  | { type: "OMBRE_ADD_TO_CHAT"; text: string };
+  | { type: "OMBRE_ADD_TO_CHAT"; text: string }
+  | { type: "OMBRE_INSERT_NOTE"; text: string };
 
 export type RuntimeEvent =
   | { type: "TOQAN_REPLY"; reply: string; conversationId: string }

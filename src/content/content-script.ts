@@ -1,5 +1,6 @@
 // content/index.ts — floating response panel for "Ask Ombre AI" context menu action.
 // Runs in an isolated shadow root so host-page CSS can't leak in or out.
+import { NOTES_KEY, createNote, notePreview, searchNotes, type Note } from "../lib/notes";
 
 // ── Extension-context safety ──────────────────────────────────────────────
 // When the extension is reloaded/updated (dev iteration, or a normal
@@ -44,7 +45,7 @@ function safeStorageGet(keys: string[]): Promise<Record<string, unknown>> {
 function safeStorageSet(items: Record<string, unknown>): void {
   if (!isExtensionContextValid()) return;
   try {
-    chrome.storage.local.set(items).catch(() => {});
+    chrome.storage.local.set(items).catch(() => { });
   } catch {
     // context died mid-call — nothing more we can do, next save attempt will just no-op too
   }
@@ -169,9 +170,8 @@ function renderPanel({ query, response, error }: ContextEvent) {
     </div>
     <div class="body">
       ${query ? `<div class="query">${escapeHtml(query)}</div>` : ""}
-      <div class="${error ? "answer error" : "answer"}">${
-        error ? escapeHtml(error) : renderMarkdownLite(response || "")
-      }</div>
+      <div class="${error ? "answer error" : "answer"}">${error ? escapeHtml(error) : renderMarkdownLite(response || "")
+    }</div>
     </div>
   `;
 
@@ -378,7 +378,7 @@ function setThinkingWord(root: ParentNode, word: string) {
 /** Starts (or restarts) cycling the word inside a rendered thinking-indicator.
  *  Returns a stop function; call it once the indicator is removed/replaced. */
 function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 2600): () => void {
-  if (words.length <= 1) return () => {};
+  if (words.length <= 1) return () => { };
   let index = 0;
   const timer = window.setInterval(() => {
     index = (index + 1) % words.length;
@@ -393,6 +393,170 @@ function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 
   return () => window.clearInterval(timer);
 }
 
+const TOAST_HOST_ID = "ombre-ai-toast-host";
+
+function showQuickToast(msg: string) {
+  let host = document.getElementById(TOAST_HOST_ID);
+  if (!host) {
+    host = document.createElement("div");
+    host.id = TOAST_HOST_ID;
+    document.documentElement.appendChild(host);
+    const root = host.attachShadow({ mode: "open" });
+    const style = document.createElement("style");
+    style.textContent = `
+      .toast-box {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(10px);
+        z-index: 2147483647;
+        background: rgba(23, 23, 26, 0.95);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(108, 99, 255, 0.4);
+        color: #f2f2f5;
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 999px;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.5);
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .toast-box.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    `;
+    const container = document.createElement("div");
+    container.className = "toast-container";
+    root.append(style, container);
+  }
+
+  const root = host.shadowRoot;
+  if (!root) return;
+  const container = root.querySelector(".toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast-box";
+  toast.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ${escapeHtml(msg)}`;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add("visible");
+  });
+
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 250);
+  }, 2200);
+}
+
+function isWithinOwnUI(node: Node | null): boolean {
+  let el = node instanceof Element ? node : node?.parentElement ?? null;
+  while (el) {
+    if (
+      el.id === "ombre-ai-edge-panel-host" ||
+      el.id === "ombre-ai-context-panel-host" ||
+      el.id === "ombre-ai-selection-host" ||
+      el.id === "ombre-ai-quick-tool-host"
+    ) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
+function replaceInField(el: HTMLTextAreaElement | HTMLInputElement, start: number, end: number, newText: string) {
+  const proto = el instanceof HTMLTextAreaElement ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  const newValue = el.value.slice(0, start) + newText + el.value.slice(end);
+
+  if (nativeSetter) nativeSetter.call(el, newValue);
+  else el.value = newValue;
+
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  const caret = start + newText.length;
+  el.focus();
+  try {
+    el.setSelectionRange(caret, caret);
+  } catch {
+    // ignore
+  }
+}
+
+let lastFocusedEditableEl: HTMLElement | null = null;
+
+document.addEventListener("focusin", (e) => {
+  const target = e.target as HTMLElement;
+  if (!target) return;
+  if (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLInputElement ||
+    target.isContentEditable ||
+    target.getAttribute("role") === "textbox"
+  ) {
+    if (!isWithinOwnUI(target)) {
+      lastFocusedEditableEl = target;
+    }
+  }
+});
+
+function insertTextIntoActiveElement(text: string): boolean {
+  let active: HTMLElement | null = document.activeElement as HTMLElement | null;
+  if (!active || active === document.body || isWithinOwnUI(active)) {
+    active = lastFocusedEditableEl;
+  }
+  if (!active) return false;
+
+  if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+    const el = active;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    replaceInField(el, start, end, text);
+    return true;
+  }
+
+  if (active.isContentEditable || active.getAttribute("role") === "textbox" || active.closest("[contenteditable='true']")) {
+    const editable = active.isContentEditable ? active : (active.closest("[contenteditable='true']") as HTMLElement || active);
+    editable.focus();
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    }
+
+    try {
+      if (document.execCommand("insertText", false, text)) {
+        editable.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      }
+    } catch { }
+
+    editable.textContent += text;
+    editable.dispatchEvent(new Event("input", { bubbles: true }));
+    return true;
+  }
+
+  return false;
+}
+
 chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; text?: string }) => {
   if (message.type === "TOQAN_CONTEXT_RESPONSE") {
     const m = message as ContextEvent;
@@ -401,9 +565,15 @@ chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; te
     const m = message as ContextEvent;
     renderPanel({ type: m.type as "TOQAN_CONTEXT_ERROR", error: m.error });
   } else if (message.type === "OMBRE_ADD_TO_CHAT" && "text" in message && message.text) {
-    // Relayed from an iframe (e.g. Gmail's compose box) where the edge panel
-    // doesn't live — only does anything in the top frame, where it does.
     edgePanelOpenWithText?.(message.text);
+  } else if (message.type === "OMBRE_INSERT_NOTE" && "text" in message && message.text) {
+    const ok = insertTextIntoActiveElement(message.text);
+    if (ok) {
+      showQuickToast("Note inserted into text field! ⚡");
+    } else {
+      showQuickToast("Copied note to clipboard!");
+      void copyToClipboard(message.text);
+    }
   }
 });
 
@@ -667,6 +837,49 @@ function initEdgePanel() {
 
     .history-list { display: flex; flex-direction: column; gap: 3px; }
     .history-empty { margin: auto; text-align: center; color: #8b8b95; font-size: 13px; padding: 0 20px; }
+
+    .notes-search { position: relative; margin-bottom: 8px; flex-shrink: 0; }
+    .notes-search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; stroke: #8b8b95; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .notes-search input { width: 100%; background: #17171a; border: 1px solid rgba(255,255,255,0.09); border-radius: 9px; padding: 8px 10px 8px 28px; color: #f2f2f5; font-size: 12.5px; font-family: inherit; outline: none; }
+    .notes-search input:focus { border-color: rgba(108,99,255,0.5); }
+    .notes-item-body { font-size: 11.5px; color: #a0a0aa; line-height: 1.55; white-space: pre-wrap; margin-top: 5px; max-height: 150px; overflow-y: auto; }
+
+    .notes-edit { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+    .notes-edit input, .notes-edit textarea {
+      width: 100%;
+      background: #17171a;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 7px 9px;
+      color: #f2f2f5;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .notes-edit input { font-weight: 600; }
+    .notes-edit textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+    .notes-edit input:focus, .notes-edit textarea:focus { border-color: rgba(108,99,255,0.55); }
+    .notes-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
+    .notes-edit-actions button {
+      border: none;
+      border-radius: 7px;
+      padding: 5px 11px;
+      font-size: 11.5px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: transform 0.12s, background 0.12s;
+    }
+    .notes-edit-actions button:active { transform: scale(0.95); }
+    .notes-edit-cancel { background: #26262b; color: #c8c8ce; }
+    .notes-edit-cancel:hover { background: #303036; }
+    .notes-edit-save { background: linear-gradient(135deg, #6c63ff, #d946ef); color: #fff; box-shadow: 0 2px 6px rgba(108,99,255,0.3); }
+    .notes-edit-save:hover { filter: brightness(1.1); }
+    .notes-edit-hint { font-size: 10px; color: #6b6b76; margin-right: auto; }
     .history-item { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
     .history-item:hover { background: #1c1c20; }
     .history-item.active { background: #1c1c20; }
@@ -726,6 +939,9 @@ function initEdgePanel() {
     <div class="header">
       <div class="brand"><span class="dot">O</span> Ombre AI</div>
       <div class="headerbtns">
+        <button class="iconbtn notes" aria-label="Notes" title="Notes">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
         <button class="iconbtn history" aria-label="Chat history" title="Chat history">
           <svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
         </button>
@@ -784,6 +1000,7 @@ function initEdgePanel() {
   const micBtn = panel.querySelector(".mic") as HTMLButtonElement;
   const closeBtn = panel.querySelector(".close") as HTMLButtonElement;
   const historyBtn = panel.querySelector(".history") as HTMLButtonElement;
+  const notesBtn = panel.querySelector(".notes") as HTMLButtonElement;
   const newChatBtn = panel.querySelector(".newchat") as HTMLButtonElement;
   const inputTip = panel.querySelector(".input-tip") as HTMLDivElement;
   const inputTipClose = panel.querySelector(".input-tip-close") as HTMLButtonElement;
@@ -798,6 +1015,9 @@ function initEdgePanel() {
   let activeId: string | null = null;
   let isThinking = false;
   let showHistory = false;
+  let showNotesView = false;
+  let edgeNotes: Note[] = [];
+  let expandedNoteId: string | null = null;
   let isMicListening = false;
   let micStop: (() => void) | null = null;
   let stopEdgeThinkingCycle: (() => void) | null = null;
@@ -852,6 +1072,7 @@ function initEdgePanel() {
   // Starts a brand-new chat. The current one (if it has any messages) is left
   // exactly as-is in `conversations` — i.e. saved to history — never deleted.
   function startNewChat() {
+    showNotesView = false;
     const current = activeConversation();
     if (current && current.messages.length === 0) {
       // Already sitting on an empty chat — nothing to save, just reuse it.
@@ -891,6 +1112,7 @@ function initEdgePanel() {
   function selectConversation(id: string) {
     activeId = id;
     showHistory = false;
+    showNotesView = false;
     isThinking = false;
     render();
   }
@@ -903,6 +1125,13 @@ function initEdgePanel() {
   }
 
   function render() {
+    if (showNotesView) {
+      historyBtn.classList.remove("active");
+      notesBtn.classList.add("active");
+      renderNotesView();
+      return;
+    }
+    notesBtn.classList.remove("active");
     if (showHistory) {
       historyBtn.classList.add("active");
       renderHistory();
@@ -910,6 +1139,117 @@ function initEdgePanel() {
       historyBtn.classList.remove("active");
       renderChat();
     }
+  }
+
+  function renderNotesView() {
+    safeStorageGet([NOTES_KEY]).then((res) => {
+      edgeNotes = (res[NOTES_KEY] as Note[]) || [];
+      paintNotesView("");
+    });
+    bodyEl.innerHTML = `
+      <div class="notes-search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" placeholder="Search notes…" aria-label="Search notes" />
+      </div>
+      <div class="history-list notes-list"></div>
+    `;
+    const searchInput = bodyEl.querySelector(".notes-search input") as HTMLInputElement;
+    searchInput.addEventListener("input", () => paintNotesView(searchInput.value));
+    setTimeout(() => searchInput.focus(), 50);
+  }
+
+  function paintNotesView(query: string) {
+    const listEl = bodyEl.querySelector(".notes-list") as HTMLDivElement | null;
+    if (!listEl) return;
+    const matches = searchNotes(edgeNotes, query, 50);
+    if (matches.length === 0) {
+      listEl.innerHTML = `<div class="history-empty">${query.trim() ? "No notes match your search." : "No notes yet — save one from the pill at the bottom of the page."
+        }</div>`;
+      return;
+    }
+    listEl.innerHTML = matches
+      .map(
+        (m) => `
+      <div class="history-item" data-note-id="${m.note.id}" role="button" tabindex="0">
+        <div class="history-item-main">
+          <div class="history-item-title">${escapeHtml(m.note.title)}</div>
+          <div class="history-item-time">${relativeTime(m.note.updatedAt)}</div>
+          ${m.note.id === expandedNoteId
+            ? `<div class="notes-edit">
+                  <input class="notes-edit-title" value="${escapeHtml(m.note.title)}" placeholder="Title…" aria-label="Note title" />
+                  <textarea class="notes-edit-body" placeholder="Write a note…" aria-label="Note content">${escapeHtml(m.note.content)}</textarea>
+                  <div class="notes-edit-actions">
+                    <span class="notes-edit-hint">Click outside the note to close</span>
+                    <button class="notes-edit-cancel" data-note-cancel="${m.note.id}">Cancel</button>
+                    <button class="notes-edit-save" data-note-save="${m.note.id}">Save</button>
+                  </div>
+                </div>`
+            : `<div class="notes-item-body">${escapeHtml(m.note.content)}</div>`
+          }
+        </div>
+        <button class="history-item-del" data-note-del="${m.note.id}" aria-label="Delete note" title="Delete note">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+        </button>
+      </div>`
+      )
+      .join("");
+
+    listEl.querySelectorAll<HTMLElement>(".history-item").forEach((el) => {
+      const toggle = () => {
+        const id = el.dataset.noteId ?? null;
+        expandedNoteId = expandedNoteId === id ? null : id;
+        paintNotesView(query);
+      };
+      el.addEventListener("click", toggle);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      });
+    });
+
+    // Editing fields must not toggle the expansion when clicked/typed in.
+    listEl.querySelectorAll<HTMLElement>(".notes-edit").forEach((editEl) => {
+      editEl.addEventListener("click", (e) => e.stopPropagation());
+      editEl.addEventListener("keydown", (e) => e.stopPropagation());
+    });
+
+    listEl.querySelectorAll<HTMLButtonElement>("[data-note-save]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.noteSave!;
+        const item = listEl.querySelector(`.history-item[data-note-id="${id}"]`);
+        const titleInput = item?.querySelector<HTMLInputElement>(".notes-edit-title");
+        const bodyInput = item?.querySelector<HTMLTextAreaElement>(".notes-edit-body");
+        if (!titleInput || !bodyInput) return;
+        const content = bodyInput.value.trim();
+        if (!content) return; // empty note — nothing to save
+        const title = titleInput.value.trim() || content.split("\n")[0].trim().slice(0, 48) || "Untitled note";
+        edgeNotes = edgeNotes.map((n) =>
+          n.id === id ? { ...n, title, content: bodyInput.value.trim(), updatedAt: Date.now() } : n
+        );
+        safeStorageSet({ [NOTES_KEY]: edgeNotes });
+        paintNotesView(query);
+      });
+    });
+    listEl.querySelectorAll<HTMLButtonElement>("[data-note-cancel]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        expandedNoteId = null;
+        paintNotesView(query);
+      });
+    });
+    listEl.querySelectorAll<HTMLButtonElement>("[data-note-del]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.noteDel!;
+        edgeNotes = edgeNotes.filter((n) => n.id !== id);
+        if (expandedNoteId === id) expandedNoteId = null;
+        safeStorageSet({ [NOTES_KEY]: edgeNotes });
+        paintNotesView(query);
+      });
+    });
   }
 
   function renderHistory() {
@@ -983,19 +1323,16 @@ function initEdgePanel() {
         (m) => `
       <div class="row ${m.role}" data-msg-id="${m.id}">
         <div class="avatar ${m.role}">
-          ${
-            m.role === "user"
-              ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
-              : `<img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" />`
+          ${m.role === "user"
+            ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
+            : `<img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" />`
           }
         </div>
         <div class="col">
-          <div class="bubble ${m.role}${m.error ? " error" : ""}">${
-            m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
+          <div class="bubble ${m.role}${m.error ? " error" : ""}">${m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
           }</div>
-          ${
-            m.role === "assistant" && !m.error
-              ? `<div class="msg-actions">
+          ${m.role === "assistant" && !m.error
+            ? `<div class="msg-actions">
                   <button class="msg-copy" data-copy-id="${m.id}" title="Copy">
                     <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
@@ -1006,7 +1343,7 @@ function initEdgePanel() {
                     <svg viewBox="0 0 24 24" fill="${m.rating === "down" ? "currentColor" : "none"}"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
                   </button>
                 </div>`
-              : ""
+            : ""
           }
         </div>
       </div>`
@@ -1241,8 +1578,16 @@ function initEdgePanel() {
     safeSendMessage({ type: "OPEN_SETTINGS" });
   });
   newChatBtn.addEventListener("click", startNewChat);
+  notesBtn.addEventListener("click", () => {
+    showNotesView = !showNotesView;
+    showHistory = false;
+    isThinking = false;
+    expandedNoteId = null;
+    render();
+  });
   historyBtn.addEventListener("click", () => {
     showHistory = !showHistory;
+    showNotesView = false;
     render();
   });
   closeBtn.addEventListener("click", () => {
@@ -1277,6 +1622,7 @@ function initEdgePanel() {
     micBtn.style.display = "none";
     newChatBtn.disabled = true;
     historyBtn.disabled = true;
+    notesBtn.disabled = true;
   });
 }
 
@@ -1554,12 +1900,81 @@ function initSelectionPopup() {
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
   `;
 
+  const TOAST_HOST_ID = "ombre-ai-toast-host";
+
+  function showQuickToast(msg: string) {
+    let host = document.getElementById(TOAST_HOST_ID);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = TOAST_HOST_ID;
+      document.documentElement.appendChild(host);
+      const root = host.attachShadow({ mode: "open" });
+      const style = document.createElement("style");
+      style.textContent = `
+        .toast-box {
+          position: fixed;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%) translateY(10px);
+          z-index: 2147483647;
+          background: rgba(23, 23, 26, 0.95);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(108, 99, 255, 0.4);
+          color: #f2f2f5;
+          font-family: "Inter", system-ui, -apple-system, sans-serif;
+          font-size: 12.5px;
+          font-weight: 600;
+          padding: 8px 16px;
+          border-radius: 999px;
+          box-shadow: 0 10px 28px rgba(0,0,0,0.5);
+          opacity: 0;
+          transition: opacity 0.2s ease, transform 0.2s ease;
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+        }
+        .toast-box.visible {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      `;
+      const container = document.createElement("div");
+      container.className = "toast-container";
+      root.append(style, container);
+    }
+
+    const root = host.shadowRoot;
+    if (!root) return;
+    const container = root.querySelector(".toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = "toast-box";
+    toast.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> ${escapeHtml(msg)}`;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.add("visible");
+    });
+
+    setTimeout(() => {
+      toast.classList.remove("visible");
+      setTimeout(() => toast.remove(), 250);
+    }, 2200);
+  }
+
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
   toolbar.innerHTML = `
     <button class="tbtn primary" data-action="ask">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
       Ask Ombre
+    </button>
+    <button class="tbtn savenote" type="button" title="Save selected text to Notes">
+      ${QUICK_PEN_SVG}
+      Save Note
     </button>
     <button class="tbtn more" type="button" aria-expanded="false" aria-haspopup="menu">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
@@ -1573,6 +1988,10 @@ function initSelectionPopup() {
   moreMenu.setAttribute("aria-label", "More options");
   moreMenu.innerHTML = `
     <div class="more-menu-title">More options</div>
+    <button class="more-item savenote" role="menuitem" title="Save selected text directly to your notes">
+      ${QUICK_PEN_SVG}
+      Save to notes
+    </button>
     <button class="more-item" data-action="improve" role="menuitem">
       <svg viewBox="0 0 24 24"><path d="M15 4V2m0 4V4m-4.5 3.5L9 6m1.5 1.5L9 9M4 15l11-11 3 3L7 18l-4 1 1-4z"/></svg>
       Improve
@@ -1629,6 +2048,19 @@ function initSelectionPopup() {
 
   const moreBtn = toolbar.querySelector(".tbtn.more") as HTMLButtonElement;
 
+  function saveSelectionAsNote() {
+    if (!lastSelectedText) return;
+    const text = lastSelectedText.trim();
+    if (!text) return;
+    safeStorageGet([NOTES_KEY]).then((res) => {
+      const existing = (res[NOTES_KEY] as Note[]) || [];
+      const note = createNote(text);
+      safeStorageSet({ [NOTES_KEY]: [note, ...existing] });
+      showQuickToast("Saved to Notes! 📝");
+      hideToolbar();
+    });
+  }
+
   function hideMoreMenu() {
     moreMenu.classList.remove("visible");
     toolbar.classList.remove("menu-open");
@@ -1645,7 +2077,6 @@ function initSelectionPopup() {
   }
 
   function isWithinOwnUI(node: Node | null): boolean {
-    // Ignore selections that happen to land inside our own injected panels.
     let el = node instanceof Element ? node : node?.parentElement ?? null;
     while (el) {
       if (el.id === "ombre-ai-edge-panel-host" || el.id === "ombre-ai-context-panel-host" || el.id === SELECTION_HOST_ID) {
@@ -1669,11 +2100,6 @@ function initSelectionPopup() {
 
   const TEXT_INPUT_TYPES = new Set(["text", "search", "url", "tel", "email", "password", ""]);
 
-  // window.getSelection() never sees text selected *inside* a plain
-  // <input>/<textarea> — that's a completely separate selection model based
-  // on selectionStart/selectionEnd on the focused element itself. This is
-  // why "select text you just typed" looked broken almost everywhere, not
-  // just in Gmail's iframe.
   function getFieldSelection(): { el: HTMLTextAreaElement | HTMLInputElement; text: string; start: number; end: number } | null {
     const active = document.activeElement;
     if (isWithinOwnUI(active)) return null;
@@ -1695,7 +2121,7 @@ function initSelectionPopup() {
     let top = rect.top - height - margin;
     let left = rect.left + rect.width / 2 - width / 2;
 
-    if (top < margin) top = rect.bottom + margin; // flip below if no room above
+    if (top < margin) top = rect.bottom + margin;
     if (left < margin) left = margin;
     if (left + width > window.innerWidth - margin) left = window.innerWidth - width - margin;
     if (top + height > window.innerHeight - margin) top = Math.max(margin, window.innerHeight - height - margin);
@@ -1719,8 +2145,6 @@ function initSelectionPopup() {
   function checkSelection() {
     if (contextLostFired || card.classList.contains("visible") || moreMenu.classList.contains("visible")) return;
 
-    // 1) Plain <input>/<textarea> selection — checked first since a focused
-    // field always wins over any stale page-text selection.
     const fieldSel = getFieldSelection();
     if (fieldSel) {
       lastSelectedText = fieldSel.text.trim();
@@ -1733,7 +2157,6 @@ function initSelectionPopup() {
       return;
     }
 
-    // 2) Regular page text / contenteditable selection via the Selection API.
     const sel = window.getSelection();
     const text = sel?.toString().trim() ?? "";
     if (!text || !sel || sel.rangeCount === 0) {
@@ -1756,14 +2179,9 @@ function initSelectionPopup() {
   let selTimer: number | undefined;
   function scheduleCheckSelection() {
     window.clearTimeout(selTimer);
-    // Small defer so getSelection()/selectionStart reflect the just-finished
-    // selection gesture (mouse-drag, double-click, shift+arrow, etc).
     selTimer = window.setTimeout(checkSelection, 120);
   }
 
-  // selectionchange covers most cases (including modern Chrome firing it for
-  // input/textarea selections too), but mouseup/keyup make drag-to-select
-  // and keyboard selection inside form fields reliable across the board.
   document.addEventListener("selectionchange", scheduleCheckSelection);
   document.addEventListener("mouseup", (e) => {
     if (isWithinOwnUI(e.target as Node)) return;
@@ -1776,10 +2194,6 @@ function initSelectionPopup() {
   document.addEventListener("mousedown", (e) => {
     if (isWithinOwnUI(e.target as Node)) return;
     hideToolbar();
-    // Note: the result card is deliberately NOT closed here. Once Ask/
-    // Improve/etc. has produced an answer, only the card's own close (X)
-    // button dismisses it — clicking elsewhere on the page (to read
-    // context, copy something else, etc.) no longer loses the answer.
   });
   window.addEventListener("scroll", hideToolbar, true);
   document.addEventListener("keydown", (e) => {
@@ -1816,13 +2230,16 @@ function initSelectionPopup() {
         <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
         Copy
       </button>
-      ${
-        lastIsEditable
-          ? `<button class="card-action primary" data-act="replace">
+      <button class="card-action" data-act="savenote">
+        ${QUICK_PEN_SVG}
+        Save Note
+      </button>
+      ${lastIsEditable
+        ? `<button class="card-action primary" data-act="replace">
               <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
               Replace
             </button>`
-          : ""
+        : ""
       }
     `;
     cardFooter.querySelector('[data-act="copy"]')?.addEventListener("click", async (e) => {
@@ -1837,6 +2254,24 @@ function initSelectionPopup() {
         btn.innerHTML = originalLabel;
         btn.disabled = false;
       }, 1600);
+    });
+    cardFooter.querySelector('[data-act="savenote"]')?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const originalLabel = btn.innerHTML;
+      const clean = stripMarkdownForCopy(text);
+      if (clean) {
+        const res = await safeStorageGet([NOTES_KEY]);
+        const existing = (res[NOTES_KEY] as Note[]) || [];
+        const note = createNote(clean);
+        await safeStorageSet({ [NOTES_KEY]: [note, ...existing] });
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Saved!`;
+        btn.disabled = true;
+        showQuickToast("Response saved to Notes! 📝");
+        setTimeout(() => {
+          btn.innerHTML = originalLabel;
+          btn.disabled = false;
+        }, 1600);
+      }
     });
     cardFooter.querySelector('[data-act="replace"]')?.addEventListener("click", () => {
       const clean = stripMarkdownForCopy(text);
@@ -1967,6 +2402,9 @@ function initSelectionPopup() {
     btn.addEventListener("click", () => runAction(btn.dataset.action as SelectionAction));
   });
 
+  toolbar.querySelector(".tbtn.savenote")?.addEventListener("click", saveSelectionAsNote);
+  moreMenu.querySelector(".more-item.savenote")?.addEventListener("click", saveSelectionAsNote);
+
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     const open = !moreMenu.classList.contains("visible");
@@ -1996,8 +2434,600 @@ function initSelectionPopup() {
       // We're inside an iframe (e.g. Gmail's compose box) where the edge
       // panel doesn't exist — ask the background worker to relay this to
       // the top frame, which does have it.
-      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => {});
+      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => { });
     }
+  });
+}
+
+// ── Quick-action tool (bottom-center of every page) ───────────────────────
+// A standalone floating control docked at the bottom center. Plain text +
+// Enter saves a quick note; typing "/" opens a search palette over the saved
+// notes (Keep-style) with highlighted matches and keyboard navigation, and a
+// selected note opens in a preview card. Fully independent of the chat.
+
+const QUICK_TOOL_HOST_ID = "ombre-ai-quick-tool-host";
+
+const QUICK_PEN_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const QUICK_FILE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+const QUICK_SEARCH_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
+const QUICK_CHECK_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+const QUICK_CLOSE_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const QUICK_CORNER_SVG = `<svg class="result-corner" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>`;
+const QUICK_COPY_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const QUICK_TRASH_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>`;
+const QUICK_PLUS_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
+
+const QUICK_CHEVRON_UP_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>`;
+
+function initQuickTool() {
+  if (window.self !== window.top) return;
+  if (document.getElementById(QUICK_TOOL_HOST_ID)) return;
+
+  const host = document.createElement("div");
+  host.id = QUICK_TOOL_HOST_ID;
+  document.documentElement.appendChild(host);
+  const root = host.attachShadow({ mode: "open" });
+
+  const style = document.createElement("style");
+  style.textContent = `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: "Inter", system-ui, -apple-system, sans-serif; }
+
+    .dock {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483646;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(460px, calc(100vw - 48px));
+    }
+
+    /* Collapsed pill — flat dark launcher matching the expanded bar style */
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 8px 7px 14px;
+      background: #121115;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+      animation: quick-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pill:hover {
+      transform: translateY(-2px);
+      border-color: rgba(108, 99, 255, 0.45);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    }
+    .pill:active { transform: scale(0.96); }
+    .pill-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+    .pill-icon svg { width: 15px; height: 15px; stroke: #8b8b95; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .pill-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #d1d0c5;
+      letter-spacing: -0.01em;
+    }
+    .pill-send {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #6c63ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(108, 99, 255, 0.35);
+      transition: transform 0.15s;
+    }
+    .pill:hover .pill-send { transform: scale(1.08); }
+    .pill-send svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Expanded bar — flat dark row with a small label floating above */
+    .bar-label {
+      display: none;
+      align-self: flex-start;
+      padding-left: 2px;
+      margin-bottom: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #8b8b95;
+    }
+    .dock.expanded .bar-label { display: block; }
+
+    .bar {
+      display: none;
+      width: 100%;
+      background: #121115;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.15s;
+      animation: quick-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .bar.open { display: block; }
+    .bar:focus-within { border-color: rgba(108, 99, 255, 0.45); }
+    .bar-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 8px 9px 13px;
+    }
+
+    .bicon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .bicon svg { width: 16px; height: 16px; stroke: #8b8b95; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .bar input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #f2f2f5;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+    }
+    .bar input::placeholder { color: #d1d0c5; }
+
+    .send {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 999px;
+      background: #6c63ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s, background 0.15s;
+    }
+    .send:hover { transform: scale(1.08); background: #7d75ff; }
+    .send:active { transform: scale(0.92); }
+    .send:disabled { opacity: 0.35; cursor: default; transform: none; }
+    .send svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Search palette */
+    .results {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      margin-bottom: 8px;
+      background: rgba(28, 28, 32, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+      max-height: 280px;
+      padding: 6px;
+      overflow-y: auto;
+      animation: quick-in 0.18s cubic-bezier(0.16,1,0.3,1);
+    }
+    .results.open { display: flex; }
+    .results-label {
+      padding: 8px 10px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #8b8b95;
+    }
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      border: none;
+      background: none;
+      color: #f2f2f5;
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      font-family: inherit;
+      border-radius: 10px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .result-item:hover, .result-item.sel { background: rgba(108,99,255,0.15); }
+    .result-icon-box {
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: rgba(108,99,255,0.2);
+      color: #a9a3ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .result-item.is-content .result-icon-box {
+      background: rgba(255,255,255,0.08);
+      color: #8b8b95;
+    }
+    .result-icon-box svg { width: 13px; height: 13px; }
+    .result-text { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-corner { width: 12px; height: 12px; stroke: #a9a3ff; fill: none; opacity: 0; flex-shrink: 0; transition: opacity 0.12s; }
+    .result-item.sel .result-corner { opacity: 1; }
+    .results mark { background: rgba(108,99,255,0.35); color: #ffffff; border-radius: 3px; padding: 0 2px; }
+    .results-empty {
+      padding: 20px 12px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #8b8b95;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .results-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px 4px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 10.5px;
+      color: #8b8b95;
+      margin-top: 4px;
+    }
+    .results-footer kbd {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: inherit;
+      font-size: 9.5px;
+      font-weight: 500;
+      margin-right: 3px;
+      color: #e4e4e9;
+    }
+
+    /* Note preview card */
+    .note-card {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+      margin-bottom: 8px;
+      background: rgba(23, 23, 26, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+      max-height: 320px;
+      overflow: hidden;
+      animation: quick-in 0.2s cubic-bezier(0.16,1,0.3,1);
+    }
+    .note-card.open { display: flex; }
+    .note-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .note-card-title { font-size: 13px; font-weight: 600; color: #f2f2f5; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .note-card-time { font-size: 10.5px; color: #8b8b95; flex-shrink: 0; }
+    .note-card-actions { display: flex; align-items: center; gap: 4px; }
+    .note-card-btn { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 4px; border-radius: 6px; display: flex; flex-shrink: 0; transition: background 0.15s, color 0.15s; }
+    .note-card-btn:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
+    .note-card-btn.apply-btn.primary {
+      background: #6c63ff;
+      color: #ffffff;
+      padding: 3px 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      gap: 4px;
+      border-radius: 6px;
+    }
+    .note-card-btn.apply-btn.primary:hover { background: #7d75ff; }
+    .note-card-btn.apply-btn.primary svg { opacity: 1; stroke: #fff; }
+    .note-card-btn.delete:hover { background: rgba(242,85,90,0.15); color: #f2555a; }
+    .note-card-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .note-card-body { padding: 12px; overflow-y: auto; font-size: 12.5px; line-height: 1.6; color: #e4e4e9; white-space: pre-wrap; }
+
+    @keyframes quick-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pill, .bar, .results, .note-card { animation: none !important; }
+    }
+  `;
+
+  const dock = document.createElement("div");
+  dock.className = "dock";
+  dock.innerHTML = `
+    <div class="note-card" role="dialog" aria-label="Note">
+      <div class="note-card-header">
+        <span class="note-card-title"></span>
+        <span class="note-card-time"></span>
+        <div class="note-card-actions">
+          <button class="note-card-btn apply-btn primary" aria-label="Apply note to active field" title="Insert note into active email / text field">${QUICK_CORNER_SVG} Apply</button>
+          <button class="note-card-btn copy-btn" aria-label="Copy note text" title="Copy text">${QUICK_COPY_SVG}</button>
+          <button class="note-card-btn delete-btn delete" aria-label="Delete note" title="Delete note">${QUICK_TRASH_SVG}</button>
+          <button class="note-card-btn close-btn" aria-label="Close note" title="Close">${QUICK_CLOSE_SVG}</button>
+        </div>
+      </div>
+      <div class="note-card-body"></div>
+    </div>
+    <div class="results" role="listbox" aria-label="Note search results"></div>
+    <span class="bar-label">Ask Ombre Quick Notes</span>
+    <div class="bar" role="form" aria-label="Quick notes">
+      <div class="bar-inner">
+        <span class="bicon search-icon" aria-hidden="true">${QUICK_SEARCH_SVG}</span>
+        <input type="text" placeholder="Describe any changes you want to make..." aria-label="Save a note or type slash to search notes" />
+        <button class="send" aria-label="Save note" title="Save note" disabled>${QUICK_CHEVRON_UP_SVG}</button>
+      </div>
+    </div>
+    <button class="pill" aria-label="Open quick action tool" aria-expanded="false" title="Save a note or search notes ( / )">
+      <span class="pill-icon">${QUICK_PLUS_SVG}</span>
+      <span class="pill-label">Ask Ombre Quick Notes</span>
+      <span class="pill-send">${QUICK_CHEVRON_UP_SVG}</span>
+    </button>
+  `;
+
+  root.appendChild(style);
+  root.appendChild(dock);
+
+  const pillEl = dock.querySelector(".pill") as HTMLButtonElement;
+  const barEl = dock.querySelector(".bar") as HTMLDivElement;
+  const inputEl = dock.querySelector("input") as HTMLInputElement;
+  const sendEl = dock.querySelector(".send") as HTMLButtonElement;
+  const resultsEl = dock.querySelector(".results") as HTMLDivElement;
+  const noteCardEl = dock.querySelector(".note-card") as HTMLDivElement;
+  const applyBtn = noteCardEl.querySelector(".apply-btn") as HTMLButtonElement;
+  const copyBtn = noteCardEl.querySelector(".copy-btn") as HTMLButtonElement;
+  const deleteBtn = noteCardEl.querySelector(".delete-btn") as HTMLButtonElement;
+  const closeCardBtn = noteCardEl.querySelector(".close-btn") as HTMLButtonElement;
+
+  let notes: Note[] = [];
+  let currentResults: Note[] = [];
+  let selIndex = 0;
+  let activeNote: Note | null = null;
+  let savedTimer: number | undefined;
+
+  const isOpen = () => barEl.classList.contains("open");
+  const isSearching = () => inputEl.value.startsWith("/");
+
+  function refreshNotes() {
+    safeStorageGet([NOTES_KEY]).then((res) => {
+      notes = (res[NOTES_KEY] as Note[]) || [];
+      if (isSearching()) renderResults();
+    });
+  }
+
+  function highlight(text: string, query: string): string {
+    const escaped = escapeHtml(text);
+    const q = escapeHtml(query).trim();
+    if (!q) return escaped;
+    return escaped.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (m) => `<mark>${m}</mark>`);
+  }
+
+  function paintSel() {
+    resultsEl.querySelectorAll<HTMLButtonElement>(".result-item").forEach((btn) => {
+      btn.classList.toggle("sel", Number(btn.dataset.index) === selIndex);
+    });
+  }
+
+  function renderResults() {
+    const searching = isSearching();
+    barEl.classList.toggle("searching", searching);
+    if (!searching) {
+      resultsEl.classList.remove("open");
+      currentResults = [];
+      return;
+    }
+    const query = inputEl.value.slice(1);
+    const matches = searchNotes(notes, query, 12);
+    currentResults = matches.map((m) => m.note);
+    selIndex = Math.min(selIndex, Math.max(0, currentResults.length - 1));
+
+    if (currentResults.length === 0) {
+      const q = query.trim();
+      resultsEl.innerHTML = `<div class="results-empty">${QUICK_SEARCH_SVG}<span>${q ? `No notes match &quot;${escapeHtml(q)}&quot;` : "Type to search your notes"
+        }</span></div>`;
+      resultsEl.classList.add("open");
+      return;
+    }
+
+    let html = "";
+    let lastSection: boolean | null = null;
+    matches.forEach((m, i) => {
+      if (lastSection === null || m.matchedInTitle !== lastSection) {
+        html += `<div class="results-label">${m.matchedInTitle ? "Notes" : "Content matches"}</div>`;
+        lastSection = m.matchedInTitle;
+      }
+      const icon = m.matchedInTitle ? QUICK_PEN_SVG : QUICK_FILE_SVG;
+      const text = m.matchedInTitle
+        ? highlight(m.note.title, query)
+        : highlight(notePreview(m.note, query), query);
+      html += `<button class="result-item${m.matchedInTitle ? "" : " is-content"}${i === selIndex ? " sel" : ""}" data-index="${i}" role="option">
+        <span class="result-icon-box">${icon}</span>
+        <span class="result-text">${text}</span>
+        ${QUICK_CORNER_SVG}
+      </button>`;
+    });
+    html += `<div class="results-footer"><span><kbd>↵</kbd>Open</span><span><kbd>Shift+↵</kbd>Insert</span><span><kbd>Esc</kbd>Close</span></div>`;
+    resultsEl.innerHTML = html;
+    resultsEl.classList.add("open");
+    paintSel();
+
+    resultsEl.querySelectorAll<HTMLButtonElement>(".result-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const note = currentResults[Number(btn.dataset.index)];
+        if (note) openResult(note);
+      });
+      btn.addEventListener("mouseenter", () => {
+        selIndex = Number(btn.dataset.index);
+        paintSel();
+      });
+    });
+  }
+
+  function relativeTime(ts: number): string {
+    const min = Math.floor((Date.now() - ts) / 60000);
+    if (min < 1) return "Just now";
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const days = Math.floor(hr / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function openResult(note: Note) {
+    activeNote = note;
+    (noteCardEl.querySelector(".note-card-title") as HTMLElement).textContent = note.title;
+    (noteCardEl.querySelector(".note-card-time") as HTMLElement).textContent = relativeTime(note.updatedAt);
+    (noteCardEl.querySelector(".note-card-body") as HTMLElement).textContent = note.content;
+    noteCardEl.classList.add("open");
+    closeBar();
+  }
+
+  function saveQuickNote() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    const note = createNote(text);
+    notes = [note, ...notes];
+    safeStorageSet({ [NOTES_KEY]: notes });
+    inputEl.value = "";
+    sendEl.disabled = true;
+    barEl.classList.remove("searching");
+    barEl.classList.add("saved");
+    window.clearTimeout(savedTimer);
+    savedTimer = window.setTimeout(() => barEl.classList.remove("saved"), 1400);
+  }
+
+  function openBar() {
+    pillEl.style.display = "none";
+    pillEl.setAttribute("aria-expanded", "true");
+    dock.classList.add("expanded");
+    barEl.classList.add("open");
+    refreshNotes();
+    inputEl.focus();
+  }
+
+  function closeBar() {
+    dock.classList.remove("expanded");
+    barEl.classList.remove("open", "searching", "saved");
+    resultsEl.classList.remove("open");
+    inputEl.value = "";
+    sendEl.disabled = true;
+    currentResults = [];
+    pillEl.style.display = "flex";
+    pillEl.setAttribute("aria-expanded", "false");
+  }
+
+  function submit() {
+    if (isSearching()) {
+      const note = currentResults[selIndex];
+      if (note) openResult(note);
+    } else {
+      saveQuickNote();
+    }
+  }
+
+  pillEl.addEventListener("click", openBar);
+  inputEl.addEventListener("input", () => {
+    sendEl.disabled = isSearching() ? currentResults.length === 0 : !inputEl.value.trim();
+    selIndex = 0;
+    renderResults();
+  });
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" && currentResults.length > 0) {
+      e.preventDefault();
+      selIndex = (selIndex + 1) % currentResults.length;
+      paintSel();
+    } else if (e.key === "ArrowUp" && currentResults.length > 0) {
+      e.preventDefault();
+      selIndex = (selIndex - 1 + currentResults.length) % currentResults.length;
+      paintSel();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey && isSearching()) {
+        const note = currentResults[selIndex];
+        if (note) {
+          const ok = insertTextIntoActiveElement(note.content);
+          if (ok) {
+            showQuickToast("Note inserted into text field! ⚡");
+          } else {
+            showQuickToast("Copied note to clipboard!");
+            void copyToClipboard(note.content);
+          }
+          closeBar();
+        }
+      } else {
+        submit();
+      }
+    }
+  });
+  sendEl.addEventListener("click", submit);
+
+  closeCardBtn.addEventListener("click", () => {
+    noteCardEl.classList.remove("open");
+    activeNote = null;
+  });
+
+  applyBtn.addEventListener("click", () => {
+    if (!activeNote) return;
+    const ok = insertTextIntoActiveElement(activeNote.content);
+    if (ok) {
+      showQuickToast("Note inserted into text field! ⚡");
+    } else {
+      showQuickToast("Copied note to clipboard!");
+      void copyToClipboard(activeNote.content);
+    }
+    noteCardEl.classList.remove("open");
+    activeNote = null;
+  });
+
+  copyBtn.addEventListener("click", () => {
+    if (!activeNote) return;
+    void navigator.clipboard.writeText(activeNote.content);
+    copyBtn.innerHTML = QUICK_CHECK_SVG;
+    setTimeout(() => {
+      copyBtn.innerHTML = QUICK_COPY_SVG;
+    }, 1400);
+  });
+
+  deleteBtn.addEventListener("click", () => {
+    if (!activeNote) return;
+    notes = notes.filter((n) => n.id !== activeNote!.id);
+    safeStorageSet({ [NOTES_KEY]: notes });
+    noteCardEl.classList.remove("open");
+    activeNote = null;
+  });
+
+  // Click anywhere outside the tool collapses everything back to the pill.
+  document.addEventListener("mousedown", (e) => {
+    if (!isOpen() && !noteCardEl.classList.contains("open")) return;
+    if (e.composedPath().includes(host)) return;
+    closeBar();
+    noteCardEl.classList.remove("open");
+    activeNote = null;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (noteCardEl.classList.contains("open")) {
+      noteCardEl.classList.remove("open");
+      activeNote = null;
+    } else if (isOpen()) {
+      closeBar();
+    }
+  });
+
+  onContextLost.push(() => {
+    dock.style.display = "none";
   });
 }
 
@@ -2005,8 +3035,10 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     initEdgePanel();
     initSelectionPopup();
+    initQuickTool();
   });
 } else {
   initEdgePanel();
   initSelectionPopup();
+  initQuickTool();
 }
