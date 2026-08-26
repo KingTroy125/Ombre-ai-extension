@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, ThumbsDown, ThumbsUp, User } from "lucide-react";
+import { AlertTriangle, Check, Copy, NotebookPen, ThumbsDown, ThumbsUp, User } from "lucide-react";
 import type { ChatMessage } from "../lib/types";
+import { createNote, loadNotes, noteTitleFrom, saveNotes } from "../lib/notes";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { cn, formatTime, stripMarkdown } from "../lib/utils";
@@ -23,6 +24,7 @@ export function Message({ message, onRate }: MessageProps) {
   const isUser = message.role === "user";
   const isError = !!message.error;
   const [copied, setCopied] = useState(false);
+  const [savedToNotes, setSavedToNotes] = useState(false);
 
   const handleCopy = async () => {
     const clean = stripMarkdown(message.content);
@@ -31,10 +33,19 @@ export function Message({ message, onRate }: MessageProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard write can fail if the document doesn't have focus at the
-      // instant this runs — silently no-op rather than throwing, since
-      // there's nothing more useful to do from here.
+      // Clipboard write failure fallback
     }
+  };
+
+  const handleSaveNote = async () => {
+    const clean = stripMarkdown(message.content).trim();
+    if (!clean) return;
+    const existing = await loadNotes();
+    const title = `AI Response: ${noteTitleFrom(clean)}`;
+    const note = createNote(clean, title);
+    await saveNotes([note, ...existing]);
+    setSavedToNotes(true);
+    setTimeout(() => setSavedToNotes(false), 1500);
   };
 
   const handleRate = (rating: "up" | "down") => {
@@ -90,6 +101,17 @@ export function Message({ message, onRate }: MessageProps) {
                 className="focus-ring flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 {copied ? <Check size={11} className="feather" /> : <Copy size={11} className="feather" />}
+              </button>
+              <button
+                onClick={handleSaveNote}
+                title={savedToNotes ? "Saved to Notes!" : "Save to Notes"}
+                className="focus-ring flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {savedToNotes ? (
+                  <Check size={11} className="feather text-emerald-400" />
+                ) : (
+                  <NotebookPen size={11} className="feather" />
+                )}
               </button>
               <button
                 onClick={() => handleRate("up")}

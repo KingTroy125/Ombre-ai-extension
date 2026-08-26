@@ -91,10 +91,49 @@ function extractAnswer(data: any): string | null {
   return null;
 }
 
-function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 20000): Promise<Response> {
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 20000,
+  externalSignal?: AbortSignal
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+  // Combine the per-call timeout with the caller's cancel signal so a
+  // "stop generating" tap tears down in-flight network work immediately.
+  const signal = externalSignal
+    ? typeof AbortSignal.any === "function"
+      ? AbortSignal.any([controller.signal, externalSignal])
+      : controller.signal
+    : controller.signal;
+  return fetch(url, { ...options, signal }).finally(() => clearTimeout(timer));
+}
+
+// ── Cancellation registry ─────────────────────────────────────────────────
+// One AbortController per conversationId so the UI can stop an in-flight
+// generation ("stop generating"). Stopped requests tear down their pending
+// fetches immediately and deliver no reply/error events afterwards.
+
+interface ActiveRequest {
+  controller: AbortController;
+  cancelled: boolean;
+}
+
+const activeRequests = new Map<string, ActiveRequest>();
+
+function cancelActiveRequests(conversationId?: string) {
+  const targets = conversationId
+    ? [activeRequests.get(conversationId)].filter((r): r is ActiveRequest => !!r)
+    : [...activeRequests.values()];
+  for (const request of targets) {
+    request.cancelled = true;
+    request.controller.abort();
+  }
+}
+
+function settleActiveRequest(conversationId: string) {
+  activeRequests.delete(conversationId);
+  if (activeRequests.size === 0) stopKeepAlive();
 }
 
 // ── Context menu setup ─────────────────────────────────────────────────────
@@ -169,6 +208,12 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     return false;
   }
 
+  if (message.type === "TOQAN_STOP") {
+    cancelActiveRequests(message.conversationId);
+    sendResponse({ status: "ok" });
+    return false;
+  }
+
   if (message.type === "OPEN_SETTINGS") {
     if (chrome.runtime.openOptionsPage) {
       chrome.runtime.openOptionsPage();
@@ -194,6 +239,22 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     sendResponse({ status: "ok" });
     return false;
   }
+
+  if (message.type === "OMBRE_INSERT_NOTE") {
+    const tabId = sender.tab?.id;
+    if (tabId != null) {
+      chrome.tabs.sendMessage(tabId, { type: "OMBRE_INSERT_NOTE", text: message.text }).catch(() => {});
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeId = tabs[0]?.id;
+        if (activeId != null) {
+          chrome.tabs.sendMessage(activeId, { type: "OMBRE_INSERT_NOTE", text: message.text }).catch(() => {});
+        }
+      });
+    }
+    sendResponse({ status: "ok" });
+    return false;
+  }
 });
 
 // Extension action opens the side panel directly.
@@ -207,11 +268,17 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 async function handleChatMessageAsync(messages: ChatMessage[], conversationId: string, tabId?: number) {
   startKeepAlive();
+  const controller = new AbortController();
+  activeRequests.set(conversationId, { controller, cancelled: false });
   try {
     const lastUserMessage =
       messages.filter((m) => m.role === "user").map((m) => m.content).pop() || "";
 
-    const result = await callToqanAPI(lastUserMessage);
+    const result = await callToqanAPI(lastUserMessage, controller.signal);
+
+    // The user hit "stop" while we were working — drop everything quietly
+    // instead of appending a reply/error to a conversation they abandoned.
+    if (controller.signal.aborted) return;
 
     if (result.overloaded) {
       deliver({ type: "TOQAN_OVERLOADED", message: result.error!, conversationId }, tabId);
@@ -221,9 +288,10 @@ async function handleChatMessageAsync(messages: ChatMessage[], conversationId: s
       deliver({ type: "TOQAN_ERROR", error: result.error || "Unknown error", conversationId }, tabId);
     }
   } catch (err) {
+    if ((err as Error).name === "AbortError") return;
     deliver({ type: "TOQAN_ERROR", error: (err as Error).message, conversationId }, tabId);
   } finally {
-    stopKeepAlive();
+    settleActiveRequest(conversationId);
   }
 }
 
@@ -254,7 +322,7 @@ interface ToqanCallResult {
   requestId?: string;
 }
 
-async function callToqanAPI(userMessage: string): Promise<ToqanCallResult> {
+async function callToqanAPI(userMessage: string, signal?: AbortSignal): Promise<ToqanCallResult> {
   const settings = await chrome.storage.sync.get(["toqan_settings"]);
   const stored: { apiKey?: string; agentId?: string; apiEndpoint?: string } =
     settings["toqan_settings"] || {};
@@ -269,12 +337,14 @@ async function callToqanAPI(userMessage: string): Promise<ToqanCallResult> {
 
   const MAX_RETRIES = 3;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (signal?.aborted) return { error: "cancelled" };
     if (attempt > 0) {
       console.log(`[Toqan] Retrying (attempt ${attempt}/${MAX_RETRIES}) after overload...`);
       await new Promise((r) => setTimeout(r, 5000 * attempt));
+      if (signal?.aborted) return { error: "cancelled" };
     }
 
-    const singleResult = await callToqanAPIOnce(apiKey, agentId, userMessage, createUrl);
+    const singleResult = await callToqanAPIOnce(apiKey, agentId, userMessage, createUrl, signal);
 
     if (singleResult?.reply && !isOverloadMessage(singleResult.reply)) {
       return { reply: singleResult.reply };
@@ -304,18 +374,24 @@ async function callToqanAPIOnce(
   apiKey: string,
   agentId: string,
   userMessage: string,
-  createUrl: string
+  createUrl: string,
+  signal?: AbortSignal
 ): Promise<ToqanCallResult> {
   const getAnswerUrlResolved = getAnswerUrl(createUrl);
 
   const requestBody: Record<string, string> = { user_message: userMessage };
   if (agentId) requestBody.agent_id = agentId;
 
-  const createResp = await fetchWithTimeout(createUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
-    body: JSON.stringify(requestBody),
-  });
+  const createResp = await fetchWithTimeout(
+    createUrl,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
+      body: JSON.stringify(requestBody),
+    },
+    20000,
+    signal
+  );
 
   if (!createResp.ok) {
     const errText = await createResp.text();
@@ -333,7 +409,7 @@ async function callToqanAPIOnce(
   }
 
   console.log("[Toqan] Polling for response...");
-  const result = await pollForResult(conversationId, requestId, apiKey, getAnswerUrlResolved);
+  const result = await pollForResult(conversationId, requestId, apiKey, getAnswerUrlResolved, signal);
 
   if (result?.reply) {
     return { reply: result.reply };
@@ -351,7 +427,8 @@ async function pollForResult(
   conversationId: string,
   requestId: string,
   apiKey: string,
-  getAnswerUrlResolved: string
+  getAnswerUrlResolved: string,
+  signal?: AbortSignal
 ): Promise<{ reply?: string; error?: string } | null> {
   const pollUrl = `${getAnswerUrlResolved}?conversation_id=${encodeURIComponent(conversationId)}&request_id=${encodeURIComponent(requestId)}`;
 
@@ -359,11 +436,13 @@ async function pollForResult(
   const POLL_INTERVAL_MS = 2000;
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    if (signal?.aborted) return null;
     if (i > 0) await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    if (signal?.aborted) return null;
     keepAlive();
 
     try {
-      const resp = await fetchWithTimeout(pollUrl, { headers: { "X-Api-Key": apiKey } });
+      const resp = await fetchWithTimeout(pollUrl, { headers: { "X-Api-Key": apiKey } }, 20000, signal);
 
       if (resp.status === 404 || resp.status === 202) {
         console.log(`[Toqan] Poll attempt ${i + 1}: not ready (${resp.status})`);

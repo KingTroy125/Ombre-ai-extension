@@ -5,6 +5,7 @@ import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";
 import { Message, ThinkingBubble } from "./Message";
 import { Input } from "./Input";
+import { QuickActionBar } from "./QuickActionBar";
 import { useSettings } from "../hooks/useSettings";
 
 const SUGGESTIONS = [
@@ -17,10 +18,12 @@ interface ChatProps {
   conversation: Conversation | null;
   onUpdateConversation: (id: string, patch: Partial<Conversation>) => void;
   onEnsureConversation: () => Conversation;
+  /** Opens a saved note (by id) in the sidepanel's Notes page. */
+  onOpenNote?: (id: string) => void;
 }
 
-export function Chat({ conversation, onUpdateConversation, onEnsureConversation }: ChatProps) {
-  const { sendMessage, isThinking, statusNote } = useChat({
+export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote }: ChatProps) {
+  const { sendMessage, stopGeneration, isThinking, statusNote } = useChat({
     conversation,
     onUpdateConversation,
     onEnsureConversation,
@@ -131,7 +134,15 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation 
         />
       )}
 
-      <Input onSend={handleSend} disabled={isThinking} isThinking={isThinking} />
+      <Input
+        onSend={handleSend}
+        disabled={isThinking}
+        isThinking={isThinking}
+        onStop={stopGeneration}
+      />
+
+      {/* Standalone quick-action tool, docked at the very bottom center. */}
+      <QuickActionBar onOpenNote={onOpenNote} />
     </div>
   );
 }
