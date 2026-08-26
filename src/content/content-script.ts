@@ -2205,14 +2205,14 @@ function initSelectionPopup() {
       hideToolbar();
       hideCard();
     }
-    if (e.key === "/" && quickBarOpen) {
+    if (e.key === "-" && quickBarOpen) {
       e.preventDefault();
       if (dock) {
         const input = dock.querySelector("input") as HTMLInputElement;
-        if (input) {
-          input.focus();
-          input.value = "/";
-        }
+if (input) {
+        input.focus();
+        input.value = "-";
+      }
       }
     }
   });
@@ -2455,7 +2455,7 @@ function initSelectionPopup() {
 
 // ── Quick-action tool (bottom-center of every page) ───────────────────────
 // A standalone floating control docked at the bottom center. Plain text +
-// Enter saves a quick note; typing "/" opens a search palette over the saved
+// Enter saves a quick note; typing "-" opens a search palette over the saved
 // notes (Keep-style) with highlighted matches and keyboard navigation, and a
 // selected note opens in a preview card. Fully independent of the chat.
 
@@ -2779,11 +2779,11 @@ function initQuickTool() {
     <div class="bar" role="form" aria-label="Quick notes">
       <div class="bar-inner">
         <span class="bicon search-icon" aria-hidden="true">${QUICK_SEARCH_SVG}</span>
-        <input type="text" placeholder="Describe any changes you want to make..." aria-label="Save a note or type slash to search notes" />
+        <input type="text" placeholder="Describe any changes you want to make..." aria-label="Save a note or type dash to search notes" />
         <button class="send" aria-label="Save note" title="Save note" disabled>${QUICK_CHEVRON_UP_SVG}</button>
       </div>
     </div>
-    <button class="pill" aria-label="Open quick action tool" aria-expanded="false" title="Save a note or search notes ( / )">
+    <button class="pill" aria-label="Open quick action tool" aria-expanded="false" title="Save a note or search notes ( - )">
       <span class="pill-icon">${QUICK_PLUS_SVG}</span>
       <span class="pill-label">Ask Ombre Quick Notes</span>
       <span class="pill-send">${QUICK_CHEVRON_UP_SVG}</span>
@@ -2811,7 +2811,7 @@ function initQuickTool() {
   let savedTimer: number | undefined;
 
   const isOpen = () => barEl.classList.contains("open");
-  const isSearching = () => inputEl.value.startsWith("/");
+  const isSearching = () => inputEl.value.startsWith("-");
 
   function refreshNotes() {
     safeStorageGet([NOTES_KEY]).then((res) => {
