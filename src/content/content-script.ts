@@ -2491,12 +2491,20 @@ function initQuickTool() {
       position: fixed;
       bottom: 18px;
       left: 50%;
-      transform: translateX(-50%);
+      transform: translateX(-50%) translateY(14px);
       z-index: 2147483646;
       display: flex;
       flex-direction: column;
       align-items: center;
       width: min(460px, calc(100vw - 48px));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.35s cubic-bezier(0.16,1,0.3,1);
+    }
+    .dock.peek, .dock.expanded {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
     }
 
     /* Collapsed pill — flat dark launcher matching the expanded bar style */
@@ -2809,6 +2817,11 @@ function initQuickTool() {
   let selIndex = 0;
   let activeNote: Note | null = null;
   let savedTimer: number | undefined;
+  let lastMouseY = window.innerHeight;
+  const BOTTOM_REVEAL_PX = 100;
+  let revealHideTimer: number | undefined;
+  const isNearBottom = (y: number) => y > window.innerHeight - BOTTOM_REVEAL_PX;
+  let quickNotesEnabledCache = true;
 
   const isOpen = () => barEl.classList.contains("open");
   const isSearching = () => inputEl.value.startsWith("-");
@@ -2925,7 +2938,7 @@ function initQuickTool() {
   function openBar() {
     pillEl.style.display = "none";
     pillEl.setAttribute("aria-expanded", "true");
-    dock!.classList.add("expanded");
+    dock!.classList.add("peek", "expanded");
     quickBarOpen = true;
     barEl.classList.add("open");
     refreshNotes();
@@ -2942,6 +2955,10 @@ function initQuickTool() {
     currentResults = [];
     pillEl.style.display = "flex";
     pillEl.setAttribute("aria-expanded", "false");
+    // keep peek briefly then re-evaluate bottom proximity
+    if (!isNearBottom(lastMouseY)) {
+      dock!.classList.remove("peek");
+    }
   }
 
   function submit() {
@@ -3040,6 +3057,65 @@ function initQuickTool() {
     } else if (isOpen()) {
       closeBar();
     }
+  });
+
+  // ── Enable/disable via Settings (sync storage) ──────────────────────────
+  const applyQuickNotesEnabled = (enabled: boolean) => {
+    quickNotesEnabledCache = enabled;
+    if (!dock) return;
+    if (enabled) {
+      dock.style.display = "";
+    } else {
+      dock.style.display = "none";
+      dock.classList.remove("peek", "expanded");
+      quickBarOpen = false;
+    }
+  };
+  try {
+    chrome.storage?.sync?.get(["toqan_settings"], (res) => {
+      const s = (res as Record<string, unknown>)?.["toqan_settings"] as Record<string, unknown> | undefined;
+      if (s && typeof s.quickNotesEnabled === "boolean") applyQuickNotesEnabled(s.quickNotesEnabled as boolean);
+    });
+  } catch {}
+  try {
+    chrome.storage?.onChanged?.addListener((changes, area) => {
+      if (area !== "sync") return;
+      const c = (changes as Record<string, chrome.storage.StorageChange>)["toqan_settings"];
+      const nv = c?.newValue as Record<string, unknown> | undefined;
+      if (nv && typeof nv.quickNotesEnabled === "boolean") applyQuickNotesEnabled(nv.quickNotesEnabled as boolean);
+    });
+  } catch {}
+
+  // ── Fade-up reveal: show Ask Ombre Quick Notes when mouse nears bottom ──
+  document.addEventListener("mousemove", (e) => {
+    lastMouseY = e.clientY;
+    if (!quickNotesEnabledCache || quickBarOpen) return;
+    if (isNearBottom(e.clientY)) {
+      window.clearTimeout(revealHideTimer);
+      dock!.classList.add("peek");
+    } else {
+      const hoveringDock = dock!.matches(":hover");
+      if (!hoveringDock) {
+        window.clearTimeout(revealHideTimer);
+        revealHideTimer = window.setTimeout(() => {
+          if (!quickBarOpen && quickNotesEnabledCache && !dock!.matches(":hover") && !isNearBottom(lastMouseY)) {
+            dock!.classList.remove("peek");
+          }
+        }, 320);
+      }
+    }
+  });
+  dock.addEventListener("mouseleave", () => {
+    if (!quickNotesEnabledCache || quickBarOpen) return;
+    window.clearTimeout(revealHideTimer);
+    revealHideTimer = window.setTimeout(() => {
+      if (!isNearBottom(lastMouseY)) dock!.classList.remove("peek");
+    }, 320);
+  });
+  dock.addEventListener("mouseenter", () => {
+    if (!quickNotesEnabledCache) return;
+    window.clearTimeout(revealHideTimer);
+    dock!.classList.add("peek");
   });
 
   onContextLost.push(() => {

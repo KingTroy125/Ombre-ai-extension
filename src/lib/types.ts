@@ -23,12 +23,14 @@ export interface ToqanSettings {
   apiKey: string;
   agentId: string;
   apiEndpoint: string;
+  quickNotesEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: ToqanSettings = {
   apiKey: "",
   agentId: "",
   apiEndpoint: "https://api.toqan.ai/api/create_conversation",
+  quickNotesEnabled: true,
 };
 
 /** Messages exchanged between UI (popup/sidepanel/content) and the background service worker. */

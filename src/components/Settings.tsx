@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Check, Eye, EyeOff, KeyRound, StickyNote } from "lucide-react";
 import { useSettings } from "../hooks/useSettings";
 
 export function Settings() {
@@ -55,6 +55,39 @@ export function Settings() {
         }`}
       >
         <Check size={13} className="feather" /> Saved
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <StickyNote size={14} className="text-muted-foreground" />
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Ask Ombre Quick Notes</div>
+              <div className="text-[11.5px] leading-[1.4] text-muted-foreground">
+                Show the floating quick-notes bar at the bottom of every page
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.quickNotesEnabled}
+            aria-label="Toggle Ask Ombre Quick Notes"
+            onClick={() => {
+              update({ quickNotesEnabled: !settings.quickNotesEnabled });
+              flashSaved();
+            }}
+            className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full border transition-colors ${
+              settings.quickNotesEnabled ? "bg-primary border-primary" : "bg-muted border-input"
+            }`}
+          >
+            <span
+              className={`inline-block h-[16px] w-[16px] rounded-full bg-white shadow transition-transform ${
+                settings.quickNotesEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+              }`}
+            />
+          </button>
+        </div>
       </div>
     </div>
   );
