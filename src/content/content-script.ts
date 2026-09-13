@@ -80,21 +80,12 @@ window.setInterval(() => {
   if (!isExtensionContextValid()) reportContextLost();
 }, 20000);
 
-// Bridge so the text-selection popup (a separate shadow host) can open the
-// edge panel with quoted text pre-filled, letting the user ask more there.
-let edgePanelOpenWithText: ((text: string) => void) | null = null;
-
 interface ContextEvent {
   type: "TOQAN_CONTEXT_RESPONSE" | "TOQAN_CONTEXT_ERROR";
   query?: string;
   response?: string;
   error?: string;
 }
-
-// Small (96x96) embedded avatar — kept inline as a data URI rather than a
-// separate asset request, since this file runs on every page/frame and its
-// footprint is a deliberate design constraint (see docs/Tech_Stack_Selection.md).
-const OMBRE_AVATAR_DATA_URL = "data:image/png;base64,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";
 
 const HOST_ID = "ombre-ai-context-panel-host";
 
@@ -369,16 +360,6 @@ function thinkingIndicatorHtml(words: string[]): string {
   `;
 }
 
-/** One-shot update of a rendered thinking-indicator's word (e.g. switching to
- *  "Retrying" mid-flight on overload), independent of any running cycle. */
-function setThinkingWord(root: ParentNode, word: string) {
-  const el = root.querySelector<HTMLElement>("[data-thinking-word]");
-  if (!el) return;
-  const fresh = el.cloneNode(false) as HTMLElement;
-  fresh.textContent = word;
-  el.replaceWith(fresh);
-}
-
 /** Starts (or restarts) cycling the word inside a rendered thinking-indicator.
  *  Returns a stop function; call it once the indicator is removed/replaced. */
 function startThinkingWordCycle(root: ParentNode, words: string[], intervalMs = 2600): () => void {
@@ -466,7 +447,6 @@ function isWithinOwnUI(node: Node | null): boolean {
   let el = node instanceof Element ? node : node?.parentElement ?? null;
   while (el) {
     if (
-      el.id === "ombre-ai-edge-panel-host" ||
       el.id === "ombre-ai-context-panel-host" ||
       el.id === "ombre-ai-selection-host" ||
       el.id === "ombre-ai-quick-tool-host"
@@ -568,8 +548,6 @@ chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; te
   } else if (message.type === "TOQAN_CONTEXT_ERROR") {
     const m = message as ContextEvent;
     renderPanel({ type: m.type as "TOQAN_CONTEXT_ERROR", error: m.error });
-  } else if (message.type === "OMBRE_ADD_TO_CHAT" && "text" in message && message.text) {
-    edgePanelOpenWithText?.(message.text);
   } else if (message.type === "OMBRE_INSERT_NOTE" && "text" in message && message.text) {
     const ok = insertTextIntoActiveElement(message.text);
     if (ok) {
@@ -580,1055 +558,6 @@ chrome.runtime.onMessage.addListener((message: ContextEvent | { type: string; te
     }
   }
 });
-
-// ── Edge-hover chat trigger + slide-in panel ─────────────────────────────
-// A slim tab lives against the right edge of every page. Hovering (or
-// tapping, on touch) reveals it fully; clicking slides the full chat panel
-// in from the right. Reuses the same TOQAN_CHAT contract the popup/sidepanel
-// use, so replies stream back through the background worker's `deliver()`.
-
-interface ChatMsg {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  error?: boolean;
-  /** Thumbs up/down feedback the person gave on an assistant message. */
-  rating?: "up" | "down";
-}
-
-interface EdgeConversation {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
-  messages: ChatMsg[];
-}
-
-const EDGE_HOST_ID = "ombre-ai-edge-panel-host";
-const STORAGE_KEY = "toqan_edge_conversations";
-
-function newEdgeId(): string {
-  return `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function titleFrom(text: string): string {
-  const clean = text.trim().replace(/\s+/g, " ");
-  return clean.length > 42 ? `${clean.slice(0, 42)}…` : clean || "New chat";
-}
-
-function relativeTime(ts: number): string {
-  const diffMs = Date.now() - ts;
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "Just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const days = Math.floor(hr / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function initEdgePanel() {
-  // With all_frames enabled (needed so text selection works inside iframes
-  // like Gmail's compose box), this file runs once per frame on the page.
-  // The floating pill/chat panel should only ever exist once — in the
-  // top-level page — not once per ad/tracker/embed iframe too.
-  if (window.self !== window.top) return;
-  if (document.getElementById(EDGE_HOST_ID)) return;
-
-  const host = document.createElement("div");
-  host.id = EDGE_HOST_ID;
-  document.documentElement.appendChild(host);
-  const root = host.attachShadow({ mode: "open" });
-
-  const style = document.createElement("style");
-  style.textContent = `
-    :host { all: initial; }
-    * { box-sizing: border-box; font-family: "Inter", system-ui, -apple-system, sans-serif; }
-
-    .pill {
-      position: fixed;
-      top: 50%;
-      right: 0;
-      transform: translate(34px, -50%);
-      z-index: 2147483646;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-      padding: 14px 9px;
-      background: #17171a;
-      border-radius: 26px 0 0 26px;
-      box-shadow: -3px 0 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
-      cursor: default;
-      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
-    }
-    .pill:hover, .pill.pinned { transform: translate(0, -50%); }
-
-    .pill-open {
-      width: 36px;
-      height: 36px;
-      border-radius: 999px;
-      background: #ffffff;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: transform 0.15s;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    }
-    .pill-open:hover { transform: scale(1.06); }
-    .pill-open svg { width: 15px; height: 15px; fill: #111111; stroke: none; }
-
-    .pill-settings {
-      width: 24px;
-      height: 24px;
-      border-radius: 999px;
-      background: #f2f2f5;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: #6b6b76;
-      margin-top: 10px;
-      transform: translate(6px, 2px);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      transition: background 0.15s, color 0.15s;
-    }
-    .pill-settings:hover { background: #ffffff; color: #18181b; }
-    .pill-settings svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-
-    .panel {
-      position: fixed;
-      top: 0;
-      right: 0;
-      height: 100vh;
-      width: 380px;
-      max-width: 92vw;
-      background: #111111;
-      color: #f2f2f5;
-      border-left: 1px solid rgba(255,255,255,0.08);
-      box-shadow: -12px 0 40px rgba(0,0,0,0.45);
-      z-index: 2147483647;
-      display: flex;
-      flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.32s cubic-bezier(0.16,1,0.3,1);
-    }
-    .panel.open { transform: translateX(0); }
-
-    .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
-    .brand .dot { width: 22px; height: 22px; border-radius: 7px; background: #6c63ff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
-    .headerbtns { display: flex; align-items: center; gap: 2px; }
-    .iconbtn { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 6px; border-radius: 8px; display: flex; }
-    .iconbtn:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
-    .iconbtn.active { background: rgba(108,99,255,0.15); color: #a9a3ff; }
-    .iconbtn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-
-    .body-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
-    .body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-
-    .jump-btn {
-      position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: #1c1c20;
-      color: #f2f2f5;
-      font-size: 12px;
-      font-weight: 500;
-      font-family: inherit;
-      padding: 7px 12px;
-      border-radius: 999px;
-      cursor: pointer;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-      transition: transform 0.15s;
-    }
-    .jump-btn:hover { transform: translateX(-50%) translateY(-1px); }
-    .jump-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .empty { margin: auto; text-align: center; color: #8b8b95; font-size: 13px; padding: 0 20px; }
-    .empty .title { color: #f2f2f5; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-
-    .row { display: flex; gap: 8px; }
-    .row.user { flex-direction: row-reverse; }
-    .avatar { width: 24px; height: 24px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
-    .avatar.assistant { background: #17171a; }
-    .avatar.user { background: #1e1e22; }
-    .avatar svg { width: 12px; height: 12px; stroke: #fff; fill: none; stroke-width: 2; }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .col { display: flex; flex-direction: column; gap: 4px; max-width: 78%; }
-    .row.assistant .col { align-items: flex-start; }
-    .row.user .col { align-items: flex-end; }
-    .bubble { padding: 9px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; }
-    .bubble.assistant { background: #17171a; border-top-left-radius: 4px; white-space: normal; }
-    .bubble.user { background: #6c63ff; color: #fff; border-top-right-radius: 4px; }
-    .bubble.error { background: rgba(242,85,90,0.1); border: 1px solid rgba(242,85,90,0.4); color: #ff8a8f; white-space: pre-wrap; }
-    .bubble p { margin: 0 0 6px; }
-    .bubble p:last-child { margin-bottom: 0; }
-    .bubble .md-gap { height: 2px; }
-    .bubble ul, .bubble ol { margin: 2px 0 8px; padding-left: 18px; }
-    .bubble li { margin-bottom: 3px; }
-    .bubble strong { font-weight: 600; color: #fff; }
-    .bubble code { background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #c9c4ff; }
-
-    .msg-actions { display: flex; align-items: center; gap: 1px; padding-left: 2px; }
-    .msg-copy, .msg-rate { width: 20px; height: 20px; border-radius: 5px; border: none; background: none; color: #75757e; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.12s, color 0.12s; }
-    .msg-copy svg, .msg-rate svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-    .msg-copy:hover, .msg-rate:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
-    .msg-rate.active-up { color: #6c63ff; }
-    .msg-rate.active-down { color: #ff8a8f; }
-
-    .thinking { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #17171a; border-radius: 14px; border-top-left-radius: 4px; width: fit-content; color: #8b8b95; }
-
-    .thinking-glyph-main {
-      animation: thinking-morph 4s ease-in-out infinite, thinking-spin-scale 4s ease-in-out infinite;
-      transform-box: view-box;
-      transform-origin: center;
-    }
-    .thinking-glyph-twinkle {
-      animation: thinking-twinkle 4s ease-in-out infinite;
-      transform-box: fill-box;
-      transform-origin: center;
-    }
-    @keyframes thinking-morph {
-      0%, 100% { d: path("M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z"); }
-      30%  { d: path("M 12 4.2 C 16.8 3.4 20.6 7.2 19.8 12 C 20.6 16.4 16.4 20.6 12 19.8 C 7.8 20.6 3.4 16.8 4.2 12 C 3.4 7.6 7.2 3.4 12 4.2 Z"); }
-      50%  { d: path("M 12 5 C 15.87 5 19 8.13 19 12 C 19 15.87 15.87 19 12 19 C 8.13 19 5 15.87 5 12 C 5 8.13 8.13 5 12 5 Z"); }
-      70%  { d: path("M 12 3.6 C 16.4 4.6 18.6 8 19.2 12 C 18.6 16.2 16.2 19.4 12 20.4 C 8 19.4 5.2 16.4 4.8 12 C 5.4 7.8 7.6 4.4 12 3.6 Z"); }
-    }
-    @keyframes thinking-spin-scale {
-      0%, 100% { transform: rotate(0deg) scale(1); }
-      30% { transform: rotate(108deg) scale(0.9); }
-      50% { transform: rotate(180deg) scale(0.78); }
-      70% { transform: rotate(252deg) scale(0.9); }
-    }
-    @keyframes thinking-twinkle {
-      0%, 100% { opacity: 0; transform: rotate(0deg) scale(0.2); }
-      30% { opacity: 0; transform: rotate(45deg) scale(0.5); }
-      50% { opacity: 1; transform: rotate(90deg) scale(1); }
-      70% { opacity: 0; transform: rotate(135deg) scale(0.5); }
-    }
-    .thinking-word-grid { display: inline-grid; overflow: hidden; font-size: 12.5px; }
-    .thinking-word-grid > * { grid-column: 1; grid-row: 1; }
-    .invisible-word { visibility: hidden; }
-    .thinking-word {
-      animation: thinking-word-in 0.32s cubic-bezier(0.4, 0, 0.2, 1), thinking-sheen 2s linear infinite;
-      background-image: linear-gradient(90deg, transparent calc(50% - 16px), #f2f2f5, transparent calc(50% + 16px)), linear-gradient(#8b8b95, #8b8b95);
-      background-repeat: no-repeat, padding-box;
-      background-size: 250% 100%, auto;
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
-    }
-    @keyframes thinking-word-in {
-      from { opacity: 0; transform: translateY(70%); filter: blur(3px); background-position: 100% center, 0 0; }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); background-position: 0% center, 0 0; }
-    }
-    @keyframes thinking-sheen {
-      from { background-position: 0% center, 0 0; }
-      to   { background-position: -200% center, 0 0; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .thinking-glyph-main, .thinking-glyph-twinkle, .thinking-word { animation: none !important; }
-    }
-
-    .history-list { display: flex; flex-direction: column; gap: 3px; }
-    .history-empty { margin: auto; text-align: center; color: #8b8b95; font-size: 13px; padding: 0 20px; }
-
-    .notes-search { position: relative; margin-bottom: 8px; flex-shrink: 0; }
-    .notes-search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; stroke: #8b8b95; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .notes-search input { width: 100%; background: #17171a; border: 1px solid rgba(255,255,255,0.09); border-radius: 9px; padding: 8px 10px 8px 28px; color: #f2f2f5; font-size: 12.5px; font-family: inherit; outline: none; }
-    .notes-search input:focus { border-color: rgba(108,99,255,0.5); }
-    .notes-item-body { font-size: 11.5px; color: #a0a0aa; line-height: 1.55; white-space: pre-wrap; margin-top: 5px; max-height: 150px; overflow-y: auto; }
-
-    .notes-edit { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
-    .notes-edit input, .notes-edit textarea {
-      width: 100%;
-      background: #17171a;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      padding: 7px 9px;
-      color: #f2f2f5;
-      font-size: 12px;
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .notes-edit input { font-weight: 600; }
-    .notes-edit textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
-    .notes-edit input:focus, .notes-edit textarea:focus { border-color: rgba(108,99,255,0.55); }
-    .notes-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
-    .notes-edit-actions button {
-      border: none;
-      border-radius: 7px;
-      padding: 5px 11px;
-      font-size: 11.5px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: transform 0.12s, background 0.12s;
-    }
-    .notes-edit-actions button:active { transform: scale(0.95); }
-    .notes-edit-cancel { background: #26262b; color: #c8c8ce; }
-    .notes-edit-cancel:hover { background: #303036; }
-    .notes-edit-save { background: linear-gradient(135deg, #6c63ff, #d946ef); color: #fff; box-shadow: 0 2px 6px rgba(108,99,255,0.3); }
-    .notes-edit-save:hover { filter: brightness(1.1); }
-    .notes-edit-hint { font-size: 10px; color: #6b6b76; margin-right: auto; }
-    .history-item { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
-    .history-item:hover { background: #1c1c20; }
-    .history-item.active { background: #1c1c20; }
-    .history-item-main { min-width: 0; flex: 1; }
-    .history-item-title { font-size: 13px; color: #f2f2f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .history-item-time { font-size: 11px; color: #8b8b95; margin-top: 1px; }
-    .history-item-del { flex-shrink: 0; padding: 5px; border-radius: 7px; color: #6b6b76; background: none; border: none; cursor: pointer; opacity: 0; }
-    .history-item:hover .history-item-del { opacity: 1; }
-    .history-item-del:hover { background: rgba(242,85,90,0.15); color: #ff8a8f; }
-    .history-item-del svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
-
-    .reload-banner { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: rgba(242,85,90,0.1); border-top: 1px solid rgba(242,85,90,0.25); color: #ff9da1; font-size: 11.5px; line-height: 1.4; }
-    .reload-banner svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-
-    .inputrow { border-top: 1px solid rgba(255,255,255,0.08); padding: 10px; }
-    .input-gradient-ring { border-radius: 15px; padding: 1.5px; background: linear-gradient(90deg, #6c63ff, #d946ef, #6c63ff); box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: box-shadow 0.15s; }
-    .input-gradient-ring:focus-within { box-shadow: 0 0 0 3px rgba(108,99,255,0.18); }
-    .input-tip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; background: linear-gradient(90deg, rgba(108,99,255,0.16), rgba(217,70,239,0.09), rgba(108,99,255,0.16)); border-radius: 13.5px 13.5px 0 0; }
-    .input-tip span { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: #b7b2ff; }
-    .input-tip svg.tip-star { width: 12px; height: 12px; fill: #b7b2ff; stroke: none; flex-shrink: 0; }
-    .input-tip-close { background: none; border: none; padding: 2px; border-radius: 999px; color: #9a94e0; cursor: pointer; display: flex; }
-    .input-tip-close svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .input-tip-close:hover { color: #d4d1ff; }
-    .inputbox { display: flex; align-items: flex-end; gap: 8px; background: #17171a; border-radius: 13.5px; padding: 6px 6px 6px 10px; }
-    .input-gradient-ring:has(.input-tip) .inputbox { border-radius: 0 0 13.5px 13.5px; }
-    textarea { flex: 1; resize: none; max-height: 120px; background: transparent; border: none; outline: none; color: #f2f2f5; font-size: 13.5px; line-height: 1.5; font-family: inherit; padding: 4px 0; }
-    textarea::placeholder { color: #8b8b95; }
-    .send { width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(135deg, #6c63ff, #d946ef); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: transform 0.15s; box-shadow: 0 2px 6px rgba(108,99,255,0.35); }
-    .send:hover { transform: scale(1.05); }
-    .send:disabled { opacity: 0.3; cursor: default; transform: none; }
-    .send svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-    .mic { width: 30px; height: 30px; border-radius: 999px; background: #26262b; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; color: #c8c8ce; transition: transform 0.15s, background 0.15s, color 0.15s; }
-    .mic:hover { transform: scale(1.05); color: #fff; }
-    .mic.listening { background: #f2555a; color: #fff; animation: mic-pulse 1.4s ease-in-out infinite; }
-    .mic svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    @keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,85,90,0.45); } 50% { box-shadow: 0 0 0 6px rgba(242,85,90,0); } }
-
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
-  `;
-
-  const pill = document.createElement("div");
-  pill.className = "pill";
-  pill.innerHTML = `
-    <button class="pill-open" aria-label="Open Ombre AI chat" title="Open Ombre AI chat">
-      <svg viewBox="0 0 24 24"><path d="M12 5.5 4 15h5v3.5h6V15h5L12 5.5z"/></svg>
-    </button>
-    <button class="pill-settings" aria-label="Settings" title="Settings">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-  `;
-
-  const panel = document.createElement("div");
-  panel.className = "panel";
-  panel.innerHTML = `
-    <div class="header">
-      <div class="brand"><span class="dot">O</span> Ombre AI</div>
-      <div class="headerbtns">
-        <button class="iconbtn notes" aria-label="Notes" title="Notes">
-          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-        </button>
-        <button class="iconbtn history" aria-label="Chat history" title="Chat history">
-          <svg viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
-        </button>
-        <button class="iconbtn newchat" aria-label="New chat" title="New chat">
-          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
-        <button class="iconbtn close" aria-label="Close" title="Close">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="body-wrap">
-      <div class="body"></div>
-      <button class="jump-btn" style="display:none;">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-        <span class="jump-btn-label">Jump to latest</span>
-      </button>
-    </div>
-    <div class="reload-banner" style="display:none;">
-      <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      <span>${CONTEXT_INVALIDATED_MESSAGE}</span>
-    </div>
-    <div class="inputrow">
-      <div class="input-gradient-ring">
-        <div class="input-tip">
-          <span>
-            <svg class="tip-star" viewBox="0 0 24 24"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
-            Select text on any page to ask, improve, or rephrase it
-          </span>
-          <button class="input-tip-close" aria-label="Dismiss tip">
-            <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div class="inputbox">
-          <textarea rows="1" placeholder="Ask Ombre AI anything…"></textarea>
-          <button class="mic" aria-label="Voice input" title="Voice input">
-            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-          </button>
-          <button class="send" aria-label="Send" title="Send">
-            <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  root.append(style, pill, panel);
-
-  const bodyEl = panel.querySelector(".body") as HTMLDivElement;
-  bodyEl.setAttribute("role", "log");
-  bodyEl.setAttribute("aria-relevant", "additions");
-  const jumpBtn = panel.querySelector(".jump-btn") as HTMLButtonElement;
-  const jumpBtnLabel = panel.querySelector(".jump-btn-label") as HTMLSpanElement;
-  const textarea = panel.querySelector("textarea") as HTMLTextAreaElement;
-  const sendBtn = panel.querySelector(".send") as HTMLButtonElement;
-  const micBtn = panel.querySelector(".mic") as HTMLButtonElement;
-  const closeBtn = panel.querySelector(".close") as HTMLButtonElement;
-  const historyBtn = panel.querySelector(".history") as HTMLButtonElement;
-  const notesBtn = panel.querySelector(".notes") as HTMLButtonElement;
-  const newChatBtn = panel.querySelector(".newchat") as HTMLButtonElement;
-  const inputTip = panel.querySelector(".input-tip") as HTMLDivElement;
-  const inputTipClose = panel.querySelector(".input-tip-close") as HTMLButtonElement;
-  const inputBoxEl = panel.querySelector(".inputbox") as HTMLDivElement;
-
-  inputTipClose.addEventListener("click", () => {
-    inputTip.remove();
-    inputBoxEl.style.borderRadius = "13.5px";
-  });
-
-  let conversations: EdgeConversation[] = [];
-  let activeId: string | null = null;
-  let isThinking = false;
-  let showHistory = false;
-  let showNotesView = false;
-  let edgeNotes: Note[] = [];
-  let expandedNoteId: string | null = null;
-  let isMicListening = false;
-  let micStop: (() => void) | null = null;
-  let stopEdgeThinkingCycle: (() => void) | null = null;
-
-  // ── Sticky-to-bottom scrolling ────────────────────────────────────────
-  // Mirrors the popup/side panel's behavior: auto-scroll new content only
-  // while already at the bottom; the moment the person scrolls up, that's
-  // a deliberate opt-out and a "Jump to latest" button appears instead of
-  // yanking their place in the thread back down.
-  const BOTTOM_THRESHOLD = 56;
-  let isPinnedToBottom = true;
-
-  function isAtBottom(): boolean {
-    return bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < BOTTOM_THRESHOLD;
-  }
-
-  function setPinned(pinned: boolean) {
-    isPinnedToBottom = pinned;
-    jumpBtn.style.display = pinned ? "none" : "flex";
-    if (pinned) jumpBtnLabel.textContent = "Jump to latest";
-  }
-
-  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
-    bodyEl.scrollTo({ top: bodyEl.scrollHeight, behavior });
-    setPinned(true);
-  }
-
-  bodyEl.addEventListener("scroll", () => {
-    const atBottom = isAtBottom();
-    if (atBottom !== isPinnedToBottom) setPinned(atBottom);
-  });
-
-  jumpBtn.addEventListener("click", () => scrollToBottom());
-
-  function activeConversation(): EdgeConversation | null {
-    return conversations.find((c) => c.id === activeId) ?? null;
-  }
-
-  safeStorageGet([STORAGE_KEY]).then((res) => {
-    conversations = (res[STORAGE_KEY] as EdgeConversation[]) || [];
-    activeId = conversations[0]?.id ?? null;
-    render();
-  });
-
-  function persist() {
-    // Keep at most the 30 most recently updated conversations, 200 messages each.
-    conversations.sort((a, b) => b.updatedAt - a.updatedAt);
-    const trimmed = conversations.slice(0, 30).map((c) => ({ ...c, messages: c.messages.slice(-200) }));
-    safeStorageSet({ [STORAGE_KEY]: trimmed });
-  }
-
-  // Starts a brand-new chat. The current one (if it has any messages) is left
-  // exactly as-is in `conversations` — i.e. saved to history — never deleted.
-  function startNewChat() {
-    showNotesView = false;
-    const current = activeConversation();
-    if (current && current.messages.length === 0) {
-      // Already sitting on an empty chat — nothing to save, just reuse it.
-      showHistory = false;
-      render();
-      return;
-    }
-    const convo: EdgeConversation = {
-      id: newEdgeId(),
-      title: "New chat",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [],
-    };
-    conversations.unshift(convo);
-    activeId = convo.id;
-    showHistory = false;
-    persist();
-    render();
-  }
-
-  function ensureConversation(): EdgeConversation {
-    const existing = activeConversation();
-    if (existing) return existing;
-    const convo: EdgeConversation = {
-      id: newEdgeId(),
-      title: "New chat",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [],
-    };
-    conversations.unshift(convo);
-    activeId = convo.id;
-    return convo;
-  }
-
-  function selectConversation(id: string) {
-    activeId = id;
-    showHistory = false;
-    showNotesView = false;
-    isThinking = false;
-    render();
-  }
-
-  function deleteConversationById(id: string) {
-    conversations = conversations.filter((c) => c.id !== id);
-    if (activeId === id) activeId = conversations[0]?.id ?? null;
-    persist();
-    render();
-  }
-
-  function render() {
-    if (showNotesView) {
-      historyBtn.classList.remove("active");
-      notesBtn.classList.add("active");
-      renderNotesView();
-      return;
-    }
-    notesBtn.classList.remove("active");
-    if (showHistory) {
-      historyBtn.classList.add("active");
-      renderHistory();
-    } else {
-      historyBtn.classList.remove("active");
-      renderChat();
-    }
-  }
-
-  function renderNotesView() {
-    safeStorageGet([NOTES_KEY]).then((res) => {
-      edgeNotes = (res[NOTES_KEY] as Note[]) || [];
-      paintNotesView("");
-    });
-    bodyEl.innerHTML = `
-      <div class="notes-search">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" placeholder="Search notes…" aria-label="Search notes" />
-      </div>
-      <div class="history-list notes-list"></div>
-    `;
-    const searchInput = bodyEl.querySelector(".notes-search input") as HTMLInputElement;
-    searchInput.addEventListener("input", () => paintNotesView(searchInput.value));
-    setTimeout(() => searchInput.focus(), 50);
-  }
-
-  function paintNotesView(query: string) {
-    const listEl = bodyEl.querySelector(".notes-list") as HTMLDivElement | null;
-    if (!listEl) return;
-    const matches = searchNotes(edgeNotes, query, 50);
-    if (matches.length === 0) {
-      listEl.innerHTML = `<div class="history-empty">${query.trim() ? "No notes match your search." : "No notes yet — save one from the pill at the bottom of the page."
-        }</div>`;
-      return;
-    }
-    listEl.innerHTML = matches
-      .map(
-        (m) => `
-      <div class="history-item" data-note-id="${m.note.id}" role="button" tabindex="0">
-        <div class="history-item-main">
-          <div class="history-item-title">${escapeHtml(m.note.title)}</div>
-          <div class="history-item-time">${relativeTime(m.note.updatedAt)}</div>
-          ${m.note.id === expandedNoteId
-            ? `<div class="notes-edit">
-                  <input class="notes-edit-title" value="${escapeHtml(m.note.title)}" placeholder="Title…" aria-label="Note title" />
-                  <textarea class="notes-edit-body" placeholder="Write a note…" aria-label="Note content">${escapeHtml(m.note.content)}</textarea>
-                  <div class="notes-edit-actions">
-                    <span class="notes-edit-hint">Click outside the note to close</span>
-                    <button class="notes-edit-cancel" data-note-cancel="${m.note.id}">Cancel</button>
-                    <button class="notes-edit-save" data-note-save="${m.note.id}">Save</button>
-                  </div>
-                </div>`
-            : `<div class="notes-item-body">${escapeHtml(m.note.content)}</div>`
-          }
-        </div>
-        <button class="history-item-del" data-note-del="${m.note.id}" aria-label="Delete note" title="Delete note">
-          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-        </button>
-      </div>`
-      )
-      .join("");
-
-    listEl.querySelectorAll<HTMLElement>(".history-item").forEach((el) => {
-      const toggle = () => {
-        const id = el.dataset.noteId ?? null;
-        expandedNoteId = expandedNoteId === id ? null : id;
-        paintNotesView(query);
-      };
-      el.addEventListener("click", toggle);
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggle();
-        }
-      });
-    });
-
-    // Editing fields must not toggle the expansion when clicked/typed in.
-    listEl.querySelectorAll<HTMLElement>(".notes-edit").forEach((editEl) => {
-      editEl.addEventListener("click", (e) => e.stopPropagation());
-      editEl.addEventListener("keydown", (e) => e.stopPropagation());
-    });
-
-    listEl.querySelectorAll<HTMLButtonElement>("[data-note-save]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.noteSave!;
-        const item = listEl.querySelector(`.history-item[data-note-id="${id}"]`);
-        const titleInput = item?.querySelector<HTMLInputElement>(".notes-edit-title");
-        const bodyInput = item?.querySelector<HTMLTextAreaElement>(".notes-edit-body");
-        if (!titleInput || !bodyInput) return;
-        const content = bodyInput.value.trim();
-        if (!content) return; // empty note — nothing to save
-        const title = titleInput.value.trim() || content.split("\n")[0].trim().slice(0, 48) || "Untitled note";
-        edgeNotes = edgeNotes.map((n) =>
-          n.id === id ? { ...n, title, content: bodyInput.value.trim(), updatedAt: Date.now() } : n
-        );
-        safeStorageSet({ [NOTES_KEY]: edgeNotes });
-        paintNotesView(query);
-      });
-    });
-    listEl.querySelectorAll<HTMLButtonElement>("[data-note-cancel]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        expandedNoteId = null;
-        paintNotesView(query);
-      });
-    });
-    listEl.querySelectorAll<HTMLButtonElement>("[data-note-del]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.noteDel!;
-        edgeNotes = edgeNotes.filter((n) => n.id !== id);
-        if (expandedNoteId === id) expandedNoteId = null;
-        safeStorageSet({ [NOTES_KEY]: edgeNotes });
-        paintNotesView(query);
-      });
-    });
-  }
-
-  function renderHistory() {
-    if (conversations.length === 0) {
-      bodyEl.innerHTML = `<div class="history-empty">No past chats yet. Start one and it'll show up here.</div>`;
-      return;
-    }
-    bodyEl.innerHTML = `<div class="history-list">${conversations
-      .map(
-        (c) => `
-      <div class="history-item${c.id === activeId ? " active" : ""}" data-id="${c.id}">
-        <div class="history-item-main">
-          <div class="history-item-title">${escapeHtml(c.title)}</div>
-          <div class="history-item-time">${relativeTime(c.updatedAt)} · ${c.messages.length} message${c.messages.length === 1 ? "" : "s"}</div>
-        </div>
-        <button class="history-item-del" data-id="${c.id}" aria-label="Delete chat" title="Delete chat">
-          <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-        </button>
-      </div>`
-      )
-      .join("")}</div>`;
-
-    bodyEl.querySelectorAll(".history-item").forEach((el) => {
-      el.addEventListener("click", () => selectConversation((el as HTMLElement).dataset.id!));
-    });
-    bodyEl.querySelectorAll(".history-item-del").forEach((el) => {
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        deleteConversationById((el as HTMLElement).dataset.id!);
-      });
-    });
-  }
-
-  let lastRenderedConvoId: string | null = null;
-  let lastRenderedMsgCount = 0;
-  let lastRenderedLastId: string | null = null;
-
-  function anchorRowNearTop(id: string) {
-    const row = bodyEl.querySelector<HTMLElement>(`[data-msg-id="${id}"]`);
-    if (!row) return;
-    const delta = row.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top - 12;
-    bodyEl.scrollTo({ top: bodyEl.scrollTop + delta, behavior: "smooth" });
-  }
-
-  function renderChat() {
-    const convo = activeConversation();
-    const messages = convo?.messages ?? [];
-    const convoId = convo?.id ?? null;
-
-    bodyEl.setAttribute("aria-busy", String(isThinking));
-
-    const wasPinned = isPinnedToBottom;
-    const prevScrollTop = bodyEl.scrollTop;
-    const conversationChanged = convoId !== lastRenderedConvoId;
-    const newLast = messages[messages.length - 1];
-    const lastChanged = !!newLast && newLast.id !== lastRenderedLastId;
-    const isFreshUserTurn = lastChanged && !conversationChanged && newLast.role === "user";
-    const contentGrew = !conversationChanged && messages.length > lastRenderedMsgCount;
-
-    if (messages.length === 0 && !isThinking) {
-      bodyEl.innerHTML = `<div class="empty"><div class="title">Ombre AI</div>Ask a question about this page, or anything else — right from here.</div>`;
-      lastRenderedConvoId = convoId;
-      lastRenderedMsgCount = 0;
-      lastRenderedLastId = null;
-      setPinned(true);
-      return;
-    }
-
-    bodyEl.innerHTML = messages
-      .map(
-        (m) => `
-      <div class="row ${m.role}" data-msg-id="${m.id}">
-        <div class="avatar ${m.role}">
-          ${m.role === "user"
-            ? `<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`
-            : `<img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" />`
-          }
-        </div>
-        <div class="col">
-          <div class="bubble ${m.role}${m.error ? " error" : ""}">${m.role === "assistant" && !m.error ? renderMarkdownLite(m.content) : escapeHtml(m.content)
-          }</div>
-          ${m.role === "assistant" && !m.error
-            ? `<div class="msg-actions">
-                  <button class="msg-copy" data-copy-id="${m.id}" title="Copy">
-                    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  </button>
-                  <button class="msg-rate${m.rating === "up" ? " active-up" : ""}" data-rate-id="${m.id}" data-rate-value="up" title="Good response">
-                    <svg viewBox="0 0 24 24" fill="${m.rating === "up" ? "currentColor" : "none"}"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
-                  </button>
-                  <button class="msg-rate${m.rating === "down" ? " active-down" : ""}" data-rate-id="${m.id}" data-rate-value="down" title="Bad response">
-                    <svg viewBox="0 0 24 24" fill="${m.rating === "down" ? "currentColor" : "none"}"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
-                  </button>
-                </div>`
-            : ""
-          }
-        </div>
-      </div>`
-      )
-      .join("");
-
-    bodyEl.querySelectorAll<HTMLButtonElement>("[data-copy-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.copyId!;
-        const msg = activeConversation()?.messages.find((mm) => mm.id === id);
-        if (!msg) return;
-        copyToClipboard(stripMarkdownForCopy(msg.content)).then((ok) => {
-          if (!ok) return;
-          const original = btn.innerHTML;
-          btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`;
-          setTimeout(() => {
-            btn.innerHTML = original;
-          }, 1300);
-        });
-      });
-    });
-    bodyEl.querySelectorAll<HTMLButtonElement>("[data-rate-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.rateId!;
-        const value = btn.dataset.rateValue as "up" | "down";
-        const convo = activeConversation();
-        const msg = convo?.messages.find((mm) => mm.id === id);
-        if (!convo || !msg) return;
-        msg.rating = msg.rating === value ? undefined : value;
-        persist();
-        renderChat();
-      });
-    });
-
-    if (isThinking) {
-      bodyEl.innerHTML += `<div class="row assistant"><div class="avatar assistant"><img src="${OMBRE_AVATAR_DATA_URL}" alt="Ombre AI" /></div><div class="thinking">${thinkingIndicatorHtml(["Thinking", "Reasoning", "Considering"])}</div></div>`;
-      stopEdgeThinkingCycle?.();
-      stopEdgeThinkingCycle = startThinkingWordCycle(bodyEl, ["Thinking", "Reasoning", "Considering"]);
-    } else {
-      stopEdgeThinkingCycle?.();
-      stopEdgeThinkingCycle = null;
-    }
-
-    lastRenderedConvoId = convoId;
-    lastRenderedMsgCount = messages.length;
-    lastRenderedLastId = newLast?.id ?? null;
-
-    if (isFreshUserTurn) {
-      // Turn-anchoring: settle the message the person just sent near the
-      // top instead of snapping the whole thread to the bottom, so the
-      // reply arrives already in view below it with context preserved above.
-      requestAnimationFrame(() => anchorRowNearTop(newLast.id));
-      setPinned(false);
-    } else if (conversationChanged) {
-      scrollToBottom("auto");
-    } else if (wasPinned) {
-      scrollToBottom("smooth");
-    } else {
-      // Not pinned — the person scrolled up on purpose. Restore exactly
-      // where they were (innerHTML replacement resets scrollTop to 0) and
-      // surface a "new message" affordance instead of yanking them down.
-      bodyEl.scrollTop = prevScrollTop;
-      if (contentGrew) {
-        jumpBtnLabel.textContent = "New message";
-        jumpBtn.style.display = "flex";
-      }
-    }
-  }
-
-  function autosize() {
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
-  }
-
-  function send() {
-    const text = textarea.value.trim();
-    if (!text || isThinking) return;
-    if (isMicListening) micStop?.();
-
-    const convo = ensureConversation();
-    const isFirstMessage = convo.messages.length === 0;
-    convo.messages.push({ id: newEdgeId(), role: "user", content: text });
-    convo.updatedAt = Date.now();
-    if (isFirstMessage) convo.title = titleFrom(text);
-    persist();
-
-    showHistory = false;
-    textarea.value = "";
-    autosize();
-    isThinking = true;
-    render();
-
-    const conversationId = convo.id;
-    safeSendMessage({
-      type: "TOQAN_CHAT",
-      messages: convo.messages.map((m) => ({ id: m.id, role: m.role, content: m.content, createdAt: Date.now() })),
-      conversationId,
-    }).catch((err) => {
-      const target = conversations.find((c) => c.id === conversationId);
-      if (!target) return;
-      if (target.id === activeId) isThinking = false;
-      target.messages.push({ id: newEdgeId(), role: "assistant", content: (err as Error).message, error: true });
-      target.updatedAt = Date.now();
-      persist();
-      render();
-    });
-  }
-
-  chrome.runtime.onMessage.addListener((event: RuntimeChatEvent) => {
-    if (!("conversationId" in event) || !event.conversationId) return;
-    const target = conversations.find((c) => c.id === event.conversationId);
-    if (!target) return;
-
-    if (event.type === "TOQAN_REPLY") {
-      if (target.id === activeId) isThinking = false;
-      target.messages.push({ id: newEdgeId(), role: "assistant", content: event.reply ?? "" });
-      target.updatedAt = Date.now();
-      persist();
-      if (target.id === activeId && !showHistory) render();
-    } else if (event.type === "TOQAN_ERROR") {
-      if (target.id === activeId) isThinking = false;
-      target.messages.push({ id: newEdgeId(), role: "assistant", content: event.error ?? "Unknown error", error: true });
-      target.updatedAt = Date.now();
-      persist();
-      if (target.id === activeId && !showHistory) render();
-    } else if (event.type === "TOQAN_OVERLOADED" && target.id === activeId && !showHistory) {
-      // Background is silently retrying — swap the word to "Retrying"
-      // in place rather than a full re-render, so scroll position and
-      // the rest of the thread are left completely undisturbed.
-      stopEdgeThinkingCycle?.();
-      stopEdgeThinkingCycle = null;
-      setThinkingWord(bodyEl, "Retrying");
-    }
-  });
-
-  textarea.addEventListener("input", autosize);
-  textarea.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  });
-  guaranteeSpaceKeyWorks(textarea);
-  sendBtn.addEventListener("click", send);
-
-  // ── Voice input (Web Speech API) ────────────────────────────────────────
-  interface SpeechRecognitionLike {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-    onend: (() => void) | null;
-    onerror: (() => void) | null;
-    start: () => void;
-    stop: () => void;
-  }
-  const win = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  const SpeechCtor = win.SpeechRecognition || win.webkitSpeechRecognition;
-
-  if (!SpeechCtor) {
-    micBtn.style.display = "none";
-  } else {
-    const recognition = new SpeechCtor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
-
-    let baseValue = "";
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      let final = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) final += result[0].transcript;
-        else interim += result[0].transcript;
-      }
-      const text = (final || interim).trim();
-      if (!text) return;
-      textarea.value = baseValue ? `${baseValue} ${text}` : text;
-      if (final) baseValue = textarea.value;
-      autosize();
-    };
-    recognition.onend = () => {
-      isMicListening = false;
-      micBtn.classList.remove("listening");
-    };
-    recognition.onerror = () => {
-      isMicListening = false;
-      micBtn.classList.remove("listening");
-    };
-
-    micStop = () => {
-      try {
-        recognition.stop();
-      } catch {
-        // already stopped
-      }
-      isMicListening = false;
-      micBtn.classList.remove("listening");
-      baseValue = "";
-    };
-
-    micBtn.addEventListener("click", () => {
-      if (isMicListening) {
-        micStop?.();
-      } else {
-        baseValue = textarea.value;
-        try {
-          recognition.start();
-          isMicListening = true;
-          micBtn.classList.add("listening");
-        } catch {
-          // already started
-        }
-      }
-    });
-  }
-
-  const openBtn = pill.querySelector(".pill-open") as HTMLButtonElement;
-  const settingsBtn = pill.querySelector(".pill-settings") as HTMLButtonElement;
-
-  openBtn.addEventListener("click", () => {
-    panel.classList.add("open");
-    pill.classList.add("pinned");
-    setTimeout(() => textarea.focus(), 320);
-  });
-  settingsBtn.addEventListener("click", () => {
-    safeSendMessage({ type: "OPEN_SETTINGS" });
-  });
-  newChatBtn.addEventListener("click", startNewChat);
-  notesBtn.addEventListener("click", () => {
-    showNotesView = !showNotesView;
-    showHistory = false;
-    isThinking = false;
-    expandedNoteId = null;
-    render();
-  });
-  historyBtn.addEventListener("click", () => {
-    showHistory = !showHistory;
-    showNotesView = false;
-    render();
-  });
-  closeBtn.addEventListener("click", () => {
-    panel.classList.remove("open");
-    pill.classList.remove("pinned");
-  });
-
-  // Lets the text-selection popup drop quoted text in here and hand off —
-  // the user types their own question around it and sends when ready.
-  edgePanelOpenWithText = (text: string) => {
-    if (showHistory) {
-      showHistory = false;
-      render();
-    }
-    const quoted = `"${text}"\n\n`;
-    textarea.value = textarea.value.trim() ? `${textarea.value}\n\n${quoted}` : quoted;
-    autosize();
-    panel.classList.add("open");
-    pill.classList.add("pinned");
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    }, 320);
-  };
-
-  const reloadBanner = panel.querySelector(".reload-banner") as HTMLDivElement;
-  onContextLost.push(() => {
-    reloadBanner.style.display = "flex";
-    textarea.disabled = true;
-    textarea.placeholder = "Refresh this page to keep chatting…";
-    sendBtn.disabled = true;
-    micBtn.style.display = "none";
-    newChatBtn.disabled = true;
-    historyBtn.disabled = true;
-    notesBtn.disabled = true;
-  });
-}
 
 interface RuntimeChatEvent {
   type: string;
@@ -1680,74 +609,155 @@ function initSelectionPopup() {
       z-index: 2147483647;
       display: flex;
       align-items: center;
-      gap: 4px;
-      height: 38px;
+      gap: 2px;
+      height: 36px;
       padding: 0 6px;
-      border-radius: 10px;
+      border-radius: 999px;
       background: #18181b;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
       opacity: 0;
-      transform: translateY(6px) scale(0.97);
-      transition: opacity 0.16s ease, transform 0.16s ease;
+      transform: translateY(6px) scale(0.96);
+      transition: opacity 0.2s ease, transform 0.2s ease;
       pointer-events: none;
     }
     .toolbar.visible { opacity: 1; transform: none; pointer-events: auto; }
     .toolbar.menu-open { display: none; }
 
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .toolbar-more-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-width 0.35s cubic-bezier(0.23,1,0.32,1), opacity 0.25s cubic-bezier(0.23,1,0.32,1);
+    }
+    .toolbar.expanded .toolbar-more-actions {
+      max-width: 400px;
+      opacity: 1;
+    }
+
+    .toolbar-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      max-width: 180px;
+      overflow: hidden;
+      transition: max-width 0.35s cubic-bezier(0.23,1,0.32,1);
+    }
+    .toolbar.expanded .toolbar-input-wrap {
+      max-width: 0;
+    }
+
     .tbtn {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       border: none;
       background: transparent;
       color: #e0e0e5;
       font-size: 12px;
       font-weight: 500;
-      padding: 7px 11px;
-      border-radius: 7px;
+      padding: 0 10px;
+      height: 28px;
+      border-radius: 999px;
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.12s, color 0.12s;
+      transition: background 0.12s, color 0.12s, transform 0.12s;
     }
     .tbtn:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .tbtn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .tbtn:active { transform: scale(0.96); }
+    .tbtn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
     .tbtn.primary {
-      height: 30px;
-      padding: 0 12px;
-      gap: 7px;
       background: #6c63ff;
       color: #fff;
       font-weight: 600;
+      padding: 0 12px;
+      gap: 6px;
     }
     .tbtn.primary:hover { background: #7d75ff; }
-    .tbtn.primary svg { fill: #fff; stroke: none; }
+    .tbtn.primary svg { fill: #fff; stroke: none; width: 14px; height: 14px; }
+
+    .tbtn.send {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      justify-content: center;
+      background: #6c63ff;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .tbtn.send:hover { background: #7d75ff; }
+    .tbtn.send svg { stroke: #fff; stroke-width: 2.5; }
+
+    .tbtn.expand-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      justify-content: center;
+    }
+
+    .expand-chevron {
+      display: flex;
+      transition: transform 0.35s cubic-bezier(0.23,1,0.32,1);
+    }
+    .toolbar.expanded .expand-chevron {
+      transform: rotate(180deg);
+    }
 
     .tbtn.more {
-      height: 30px;
-      padding: 0 8px;
-      gap: 5px;
+      width: 28px;
+      padding: 0;
+      justify-content: center;
     }
     .tbtn.more[aria-expanded="true"] { background: rgba(255,255,255,0.08); }
-    .tbtn.more svg circle { fill: currentColor; stroke: none; }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 16px;
+      background: rgba(255,255,255,0.1);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    .toolbar-input {
+      width: 140px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: #e0e0e5;
+      font-size: 12px;
+      font-family: inherit;
+      padding: 0 8px;
+      outline: none;
+    }
+    .toolbar-input::placeholder { color: #8b8b95; }
 
     .more-menu {
       position: fixed;
       z-index: 2147483647;
-      width: 230px;
+      width: 200px;
       display: none;
       flex-direction: column;
-      gap: 2px;
-      padding: 8px;
-      border-radius: 10px;
+      gap: 1px;
+      padding: 6px;
+      border-radius: 12px;
       background: #18181b;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
       overflow: hidden;
     }
     .more-menu.visible { display: flex; }
 
     .more-menu-title {
-      height: 30px;
+      height: 28px;
       padding: 0 8px;
       display: flex;
       align-items: center;
@@ -1760,114 +770,82 @@ function initSelectionPopup() {
     .more-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
-      height: 36px;
-      padding: 0 10px;
+      height: 32px;
+      padding: 0 8px;
       border: none;
       background: transparent;
       color: #e0e0e5;
       font-size: 12px;
       font-weight: 500;
       font-family: inherit;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
       text-align: left;
-      transition: background 0.12s, color 0.12s;
+      transition: background 0.12s;
     }
-    .more-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+    .more-item:hover { background: rgba(255,255,255,0.07); }
     .more-item svg {
-      width: 15px;
-      height: 15px;
-      stroke: #b8b8c2;
+      width: 14px;
+      height: 14px;
+      stroke: #8b8b95;
       fill: none;
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
       flex-shrink: 0;
     }
-    .more-item:hover svg { stroke: #fff; }
-
-    .more-divider {
-      height: 1px;
-      margin: 2px 4px;
-      background: rgba(255,255,255,0.08);
-    }
+    .more-item:hover svg { stroke: #e0e0e5; }
 
     .card {
       position: fixed;
       z-index: 2147483647;
-      width: 320px;
-      max-height: 340px;
+      width: 340px;
+      max-height: 380px;
       display: flex;
       flex-direction: column;
       background: #111111;
       color: #f2f2f5;
       border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+      border-radius: 14px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.5);
       opacity: 0;
-      transform: translateY(6px) scale(0.98);
-      transition: opacity 0.18s ease, transform 0.18s ease;
+      transform: translateY(6px) scale(0.97);
+      transition: opacity 0.2s ease, transform 0.2s ease;
       pointer-events: none;
       overflow: hidden;
     }
     .card.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
-    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
     .card-brand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
-    .card-dot { width: 18px; height: 18px; border-radius: 6px; background: #6c63ff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-    .card-close { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 4px; border-radius: 6px; display: flex; }
+    .card-dot { width: 20px; height: 20px; border-radius: 7px; background: #6c63ff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+    .card-close { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 4px; border-radius: 6px; display: flex; transition: background 0.12s, color 0.12s; }
     .card-close:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
     .card-close svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
 
-    .card-body { flex: 1; overflow-y: auto; padding: 11px; font-size: 12.5px; line-height: 1.6; }
-    .card-body p { margin: 0 0 7px; }
+    .card-body { flex: 1; overflow-y: auto; padding: 12px; font-size: 12.5px; line-height: 1.65; }
+    .card-body p { margin: 0 0 8px; }
     .card-body p:last-child { margin-bottom: 0; }
-    .card-body ul, .card-body ol { margin: 3px 0 8px; padding-left: 17px; }
+    .card-body ul, .card-body ol { margin: 4px 0 8px; padding-left: 18px; }
     .card-body li { margin-bottom: 3px; }
     .card-body strong { font-weight: 600; color: #fff; }
     .card-body code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: #c9c4ff; }
     .card-body .error-text { color: #ff8a8f; }
 
-    .addmore-preview { font-size: 12px; font-style: italic; color: #8b8b95; padding: 8px 9px; background: #17171a; border-radius: 8px; margin-bottom: 9px; max-height: 60px; overflow-y: auto; }
+    .addmore-preview { font-size: 12px; font-style: italic; color: #8b8b95; padding: 8px 10px; background: #17171a; border-radius: 8px; margin-bottom: 10px; max-height: 60px; overflow-y: auto; }
     .addmore-label { font-size: 11.5px; color: #8b8b95; margin: 0 0 6px; }
-    .addmore-input { width: 100%; resize: none; background: #17171a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #f2f2f5; font-size: 12.5px; font-family: inherit; padding: 7px 9px; outline: none; margin-bottom: 8px; }
+    .addmore-input { width: 100%; resize: none; background: #17171a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #f2f2f5; font-size: 12.5px; font-family: inherit; padding: 8px 10px; outline: none; margin-bottom: 8px; }
     .addmore-input:focus { border-color: rgba(108,99,255,0.6); box-shadow: 0 0 0 3px rgba(108,99,255,0.15); }
-    .addmore-submit { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; border: none; background: #6c63ff; color: #fff; font-size: 12.5px; font-weight: 600; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
+    .addmore-submit { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; border: none; background: #6c63ff; color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
     .addmore-submit:hover { background: #7d75ff; }
     .addmore-submit svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
     .card-loading { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #8b8b95; }
+    .card-loading .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6c63ff; border-radius: 999px; animation: spin 700ms linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    .thinking-glyph-main {
-      animation: thinking-morph 4s ease-in-out infinite, thinking-spin-scale 4s ease-in-out infinite;
-      transform-box: view-box;
-      transform-origin: center;
-    }
-    .thinking-glyph-twinkle {
-      animation: thinking-twinkle 4s ease-in-out infinite;
-      transform-box: fill-box;
-      transform-origin: center;
-    }
-    @keyframes thinking-morph {
-      0%, 100% { d: path("M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z"); }
-      30%  { d: path("M 12 4.2 C 16.8 3.4 20.6 7.2 19.8 12 C 20.6 16.4 16.4 20.6 12 19.8 C 7.8 20.6 3.4 16.8 4.2 12 C 3.4 7.6 7.2 3.4 12 4.2 Z"); }
-      50%  { d: path("M 12 5 C 15.87 5 19 8.13 19 12 C 19 15.87 15.87 19 12 19 C 8.13 19 5 15.87 5 12 C 5 8.13 8.13 5 12 5 Z"); }
-      70%  { d: path("M 12 3.6 C 16.4 4.6 18.6 8 19.2 12 C 18.6 16.2 16.2 19.4 12 20.4 C 8 19.4 5.2 16.4 4.8 12 C 5.4 7.8 7.6 4.4 12 3.6 Z"); }
-    }
-    @keyframes thinking-spin-scale {
-      0%, 100% { transform: rotate(0deg) scale(1); }
-      30% { transform: rotate(108deg) scale(0.9); }
-      50% { transform: rotate(180deg) scale(0.78); }
-      70% { transform: rotate(252deg) scale(0.9); }
-    }
-    @keyframes thinking-twinkle {
-      0%, 100% { opacity: 0; transform: rotate(0deg) scale(0.2); }
-      30% { opacity: 0; transform: rotate(45deg) scale(0.5); }
-      50% { opacity: 1; transform: rotate(90deg) scale(1); }
-      70% { opacity: 0; transform: rotate(135deg) scale(0.5); }
-    }
     .thinking-word-grid { display: inline-grid; overflow: hidden; font-size: 12.5px; }
     .thinking-word-grid > * { grid-column: 1; grid-row: 1; }
     .invisible-word { visibility: hidden; }
@@ -1889,13 +867,14 @@ function initSelectionPopup() {
       to   { background-position: -200% center, 0 0; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .thinking-glyph-main, .thinking-glyph-twinkle, .thinking-word { animation: none !important; }
+      .thinking-word, .card-loading .spinner { animation: none !important; }
     }
 
-    .card-footer { display: flex; gap: 6px; padding: 9px 11px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-    .card-action { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 500; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s; }
+    .card-footer { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+    .card-action { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 500; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s, transform 0.12s; }
     .card-action:disabled { cursor: default; opacity: 0.85; }
     .card-action:hover { background: #26262b; }
+    .card-action:active { transform: scale(0.97); }
     .card-action.primary { background: #6c63ff; color: #fff; }
     .card-action.primary:hover { background: #7d75ff; }
     .card-action svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1972,17 +951,46 @@ function initSelectionPopup() {
   const toolbar = document.createElement("div");
   toolbar.className = "toolbar";
   toolbar.innerHTML = `
-    <button class="tbtn primary" data-action="ask">
-      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
-      Ask Ombre
-    </button>
-    <button class="tbtn savenote" type="button" title="Save selected text to Notes">
-      ${QUICK_PEN_SVG}
-      Save Note
-    </button>
+    <div class="toolbar-actions">
+      <button class="tbtn primary" data-action="ask" type="button">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2.5c.4 2.7 1 4.4 2.3 5.7 1.3 1.3 3 1.9 5.7 2.3-2.7.4-4.4 1-5.7 2.3-1.3 1.3-1.9 3-2.3 5.7-.4-2.7-1-4.4-2.3-5.7-1.3-1.3-3-1.9-5.7-2.3 2.7-.4 4.4-1 5.7-2.3 1.3-1.3 1.9-3 2.3-5.7z"/></svg>
+        Ask Ombre
+      </button>
+      <button class="tbtn" data-action="improve" type="button">
+        <svg viewBox="0 0 24 24"><path d="M15 4V2m0 4V4m-4.5 3.5L9 6m1.5 1.5L9 9M4 15l11-11 3 3L7 18l-4 1 1-4z"/></svg>
+        Improve
+      </button>
+      <span class="toolbar-divider"></span>
+      <div class="toolbar-more-actions">
+        <button class="tbtn" data-action="shorter" type="button">
+          <svg viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          Shorten
+        </button>
+        <button class="tbtn" data-action="explain" type="button">
+          <svg viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+          Explain
+        </button>
+        <button class="tbtn" data-action="rephrase" type="button">
+          <svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg>
+          Rephrase
+        </button>
+        <button class="tbtn savenote" type="button" title="Save selected text to Notes">
+          ${QUICK_PEN_SVG}
+          Save Note
+        </button>
+      </div>
+      <button class="tbtn expand-btn" type="button" aria-label="Show more actions" aria-expanded="false">
+        <span class="expand-chevron"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+      </button>
+    </div>
+    <div class="toolbar-input-wrap">
+      <input class="toolbar-input" type="text" placeholder="Describe edits…" aria-label="Describe edits" />
+      <button class="tbtn send" type="button" title="Send" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
     <button class="tbtn more" type="button" aria-expanded="false" aria-haspopup="menu">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-      More
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/></svg>
     </button>
   `;
 
@@ -2016,12 +1024,7 @@ function initSelectionPopup() {
       <svg viewBox="0 0 24 24"><path d="M17 2.1 21 6l-4 3.9M3 12v-2a4 4 0 0 1 4-4h14M7 21.9 3 18l4-3.9M21 12v2a4 4 0 0 1-4 4H3"/></svg>
       Rephrase
     </button>
-    <div class="more-divider"></div>
-    <button class="more-item addchat" role="menuitem" title="Send to chat panel to ask more there">
-      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 8v6M9 11h6"/></svg>
-      Add to chat
-    </button>
-  `;
+    `;
 
   const card = document.createElement("div");
   card.className = "card";
@@ -2071,7 +1074,9 @@ function initSelectionPopup() {
     moreBtn.setAttribute("aria-expanded", "false");
   }
   function hideToolbar() {
-    toolbar.classList.remove("visible");
+    toolbar.classList.remove("visible", "expanded");
+    extrasExpanded = false;
+    expandBtn?.setAttribute("aria-expanded", "false");
     hideMoreMenu();
   }
   function hideCard() {
@@ -2080,10 +1085,20 @@ function initSelectionPopup() {
     stopCardThinkingCycle?.();
   }
 
-  function isWithinOwnUI(node: Node | null): boolean {
+  function isWithinOwnUI(node: Node | null, event?: Event): boolean {
+    // Check composedPath first (crosses shadow DOM boundaries)
+    if (event?.composedPath) {
+      for (const n of event.composedPath()) {
+        if (n instanceof Element && (n.id === "ombre-ai-context-panel-host" || n.id === SELECTION_HOST_ID)) {
+          return true;
+        }
+      }
+    }
+
+    // Fallback: walk parentElement (for non-event contexts)
     let el = node instanceof Element ? node : node?.parentElement ?? null;
     while (el) {
-      if (el.id === "ombre-ai-edge-panel-host" || el.id === "ombre-ai-context-panel-host" || el.id === SELECTION_HOST_ID) {
+      if (el.id === "ombre-ai-context-panel-host" || el.id === SELECTION_HOST_ID) {
         return true;
       }
       el = el.parentElement;
@@ -2149,6 +1164,9 @@ function initSelectionPopup() {
   function checkSelection() {
     if (contextLostFired || card.classList.contains("visible") || moreMenu.classList.contains("visible")) return;
 
+    // Don't interfere when the toolbar's own input is focused
+    if (document.activeElement && isWithinOwnUI(document.activeElement)) return;
+
     const fieldSel = getFieldSelection();
     if (fieldSel) {
       lastSelectedText = fieldSel.text.trim();
@@ -2196,7 +1214,7 @@ function initSelectionPopup() {
   });
 
   document.addEventListener("mousedown", (e) => {
-    if (isWithinOwnUI(e.target as Node)) return;
+    if (isWithinOwnUI(e.target as Node, e)) return;
     hideToolbar();
   });
   window.addEventListener("scroll", hideToolbar, true);
@@ -2375,21 +1393,25 @@ if (input) {
     guaranteeSpaceKeyWorks(input);
   }
 
-  function runAction(action: SelectionAction) {
+  function runAction(action: SelectionAction, customPrompt?: string) {
     if (!lastSelectedText || contextLostFired) return;
     const rect = lastFieldEl ? lastFieldEl.getBoundingClientRect() : lastRange?.getBoundingClientRect();
     hideToolbar();
 
     card.classList.add("visible");
     requestAnimationFrame(() => {
-      if (rect) positionAbove(card, rect, 320, action === "addmore" ? 210 : 200);
+      if (rect) positionAbove(card, rect, 340, action === "addmore" ? 210 : 200);
     });
 
     if (action === "addmore") {
       renderCardAddMoreInput();
       return;
     }
-    sendSelectionPrompt(SELECTION_PROMPTS[action](lastSelectedText));
+    if (customPrompt) {
+      sendSelectionPrompt(customPrompt);
+    } else {
+      sendSelectionPrompt(SELECTION_PROMPTS[action](lastSelectedText));
+    }
   }
 
   onContextLost.push(() => {
@@ -2419,6 +1441,62 @@ if (input) {
   toolbar.querySelector(".tbtn.savenote")?.addEventListener("click", saveSelectionAsNote);
   moreMenu.querySelector(".more-item.savenote")?.addEventListener("click", saveSelectionAsNote);
 
+  // Custom prompt input + send button
+  const toolbarInput = toolbar.querySelector(".toolbar-input") as HTMLInputElement;
+  const toolbarSendBtn = toolbar.querySelector(".tbtn.send") as HTMLButtonElement;
+
+  toolbarInput?.addEventListener("input", () => {
+    const hasText = toolbarInput.value.trim().length > 0;
+    toolbarSendBtn.style.display = hasText ? "flex" : "none";
+  });
+
+  toolbarInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const text = toolbarInput.value.trim();
+      if (text) {
+        runAction("custom" as SelectionAction, `${text} the following text. Return ONLY the rewritten text with no preamble, quotes, or explanation:\n\n${lastSelectedText}`);
+        toolbarInput.value = "";
+        toolbarSendBtn.style.display = "none";
+      }
+    }
+    if (e.key === "Escape") {
+      toolbarInput.value = "";
+      toolbarSendBtn.style.display = "none";
+      toolbarInput.blur();
+    }
+  });
+
+  toolbarSendBtn?.addEventListener("click", () => {
+    const text = toolbarInput.value.trim();
+    if (text) {
+      runAction("custom" as SelectionAction, `${text} the following text. Return ONLY the rewritten text with no preamble, quotes, or explanation:\n\n${lastSelectedText}`);
+      toolbarInput.value = "";
+      toolbarSendBtn.style.display = "none";
+    }
+  });
+
+  // Expand/collapse extra actions
+  const expandBtn = toolbar.querySelector(".expand-btn") as HTMLButtonElement;
+  let extrasExpanded = false;
+
+  function repositionToolbar() {
+    const rect = lastFieldEl ? lastFieldEl.getBoundingClientRect() : lastRange?.getBoundingClientRect();
+    if (rect) {
+      requestAnimationFrame(() => {
+        positionAbove(toolbar, rect, toolbar.offsetWidth, toolbar.offsetHeight);
+      });
+    }
+  }
+
+  expandBtn?.addEventListener("click", () => {
+    extrasExpanded = !extrasExpanded;
+    expandBtn.setAttribute("aria-expanded", String(extrasExpanded));
+    toolbar.classList.toggle("expanded", extrasExpanded);
+    // Reposition after expansion animation starts
+    requestAnimationFrame(() => repositionToolbar());
+  });
+
   moreBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     const open = !moreMenu.classList.contains("visible");
@@ -2434,21 +1512,6 @@ if (input) {
       requestAnimationFrame(() => {
         positionAbove(moreMenu, rect, moreMenu.offsetWidth || 230, moreMenu.offsetHeight);
       });
-    }
-  });
-
-  const addChatBtn = moreMenu.querySelector(".addchat") as HTMLButtonElement;
-  addChatBtn.addEventListener("click", () => {
-    if (contextLostFired || !lastSelectedText) return;
-    hideToolbar();
-    if (window.self === window.top && edgePanelOpenWithText) {
-      // We're in the top frame and the edge panel lives right here — call it directly.
-      edgePanelOpenWithText(lastSelectedText);
-    } else {
-      // We're inside an iframe (e.g. Gmail's compose box) where the edge
-      // panel doesn't exist — ask the background worker to relay this to
-      // the top frame, which does have it.
-      safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text: lastSelectedText }).catch(() => { });
     }
   });
 }
@@ -3123,14 +2186,177 @@ function initQuickTool() {
   });
 }
 
+// ── Side-panel launcher (opens the Chrome side panel chat) ────────────────
+// Stand-in for the removed edge panel: a slim pill against the right edge of
+// the page. Clicking it opens the extension's *Chrome side panel* — the chat
+// lives in the browser chrome, not in an in-page overlay anymore.
+
+const SIDEPANEL_LAUNCHER_HOST_ID = "ombre-ai-sidepanel-launcher-host";
+
+function initSidePanelLauncher() {
+  if (window.self !== window.top) return;
+  if (document.getElementById(SIDEPANEL_LAUNCHER_HOST_ID)) return;
+
+  const host = document.createElement("div");
+  host.id = SIDEPANEL_LAUNCHER_HOST_ID;
+  document.documentElement.appendChild(host);
+  const root = host.attachShadow({ mode: "open" });
+
+  const style = document.createElement("style");
+  style.textContent = `
+    :host { all: initial; }
+    * { box-sizing: border-box; font-family: "Inter", system-ui, -apple-system, sans-serif; }
+
+    .launcher {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%) translateX(calc(100% - 6px));
+      z-index: 2147483646;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 4px;
+      background: rgba(24, 24, 27, 0.92);
+      border-radius: 14px 0 0 14px;
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    }
+    .launcher.visible {
+      transform: translateY(-50%) translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .launcher-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: #1c1c1e;
+      transition: background 0.15s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s;
+    }
+    .launcher-btn:active { transform: scale(0.88); }
+
+    .launcher-btn-chat {
+      position: relative;
+    }
+    .launcher-btn-chat::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: 12px;
+      background: transparent;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .launcher-btn-chat:hover {
+      background: #27272a;
+    }
+    .launcher-btn-chat:hover::after {
+      background: rgba(108, 99, 255, 0.08);
+      box-shadow: 0 0 0 1.5px rgba(108, 99, 255, 0.3);
+    }
+    .launcher-btn-chat svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: #a1a1aa;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.15s;
+    }
+    .launcher-btn-chat:hover svg { stroke: #f5f5f5; }
+
+    .launcher-btn-settings svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: #71717a;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.15s;
+    }
+    .launcher-btn-settings:hover {
+      background: #27272a;
+    }
+    .launcher-btn-settings:hover svg { stroke: #d4d4d8; }
+
+    .launcher-btn-divider {
+      width: 24px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.06);
+      align-self: center;
+    }
+  `;
+
+  const pill = document.createElement("div");
+  pill.className = "launcher";
+  pill.innerHTML = `
+    <button class="launcher-btn launcher-btn-chat" type="button" aria-label="Open Ombre AI chat" title="Open Ombre AI chat">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <div class="launcher-btn-divider"></div>
+    <button class="launcher-btn launcher-btn-settings" type="button" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  `;
+  pill.querySelector<HTMLElement>(".launcher-btn-chat")!.addEventListener("click", () => {
+    safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
+  });
+
+  pill.querySelector<HTMLElement>(".launcher-btn-settings")!.addEventListener("click", () => {
+    safeSendMessage({ type: "OPEN_SETTINGS" }).catch(() => {});
+  });
+
+  onContextLost.push(() => {
+    pill.style.opacity = "0.55";
+    pill.title = "Ombre AI was updated. Please refresh this page to keep chatting.";
+  });
+
+  // Reveal on cursor proximity to the right edge, hide when cursor moves away.
+  const REVEAL_ZONE_PX = 24;
+  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const show = () => {
+    clearTimeout(hideTimer);
+    pill.classList.add("visible");
+  };
+
+  const scheduleHide = () => {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => pill.classList.remove("visible"), 600);
+  };
+
+  document.addEventListener("mousemove", (e: MouseEvent) => {
+    const nearEdge = e.clientX >= window.innerWidth - REVEAL_ZONE_PX;
+    if (nearEdge) show();
+    else scheduleHide();
+  });
+
+  pill.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+  pill.addEventListener("mouseleave", () => scheduleHide());
+
+  root.append(style, pill);
+}
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    initEdgePanel();
     initSelectionPopup();
+    initSidePanelLauncher();
     initQuickTool();
   });
 } else {
-  initEdgePanel();
   initSelectionPopup();
+  initSidePanelLauncher();
   initQuickTool();
 }
