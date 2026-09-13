@@ -38,7 +38,7 @@ function CodeBlock({ className, children }: { className?: string; children: Reac
 
 export function Markdown({ content, className }: { content: string; className?: string }) {
   return (
-    <div className={cn("prose-toqan text-[14px] leading-relaxed", className)}>
+    <div className={cn("prose-toqan min-w-0 break-words text-[14px] leading-relaxed", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

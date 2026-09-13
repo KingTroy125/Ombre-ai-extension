@@ -36,6 +36,7 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
   const [sel, setSel] = useState(0);
   const [justSaved, setJustSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const savedTimer = useRef<number | undefined>(undefined);
 
   const searchMode = value.startsWith("/");
@@ -46,6 +47,13 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
     () => (searchMode ? searchNotes(notes, trimmedQuery, 12) : []),
     [searchMode, notes, trimmedQuery]
   );
+
+  // Scroll selected result into view
+  useEffect(() => {
+    if (!resultsRef.current || !searchMode) return;
+    const btn = resultsRef.current.querySelector(`[data-result="${sel}"]`);
+    btn?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [sel, searchMode]);
 
   useEffect(() => {
     if (open) {
@@ -126,62 +134,108 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
           >
             {/* Search palette — opens upward, docked above the bar */}
             {searchMode && (
-              <div className="mb-2 max-h-[280px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 p-2 shadow-[0_16px_36px_rgba(0,0,0,0.5)] backdrop-blur-md">
-                {results.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
-                    <Search size={20} className="mb-1.5 text-muted-foreground/60" />
-                    <p className="text-[12.5px] font-medium">
-                      {trimmedQuery ? `No notes match "${trimmedQuery}"` : "Type to search your saved notes"}
-                    </p>
-                  </div>
-                ) : (
-                  results.map((r, i) => {
-                    const sectionChanged = i === 0 || r.matchedInTitle !== results[i - 1].matchedInTitle;
-                    return (
-                      <Fragment key={r.note.id}>
-                        {sectionChanged && (
-                          <div className="px-2.5 pb-1 pt-2 text-[10.5px] font-semibold tracking-wider text-muted-foreground/80 uppercase">
-                            {r.matchedInTitle ? "Notes" : "Content matches"}
-                          </div>
-                        )}
-                        <button
-                          onClick={() => openResult(r.note)}
-                          onMouseEnter={() => setSel(i)}
-                          className={cn(
-                            "focus-ring group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[12.5px] text-foreground transition-all",
-                            i === sel ? "bg-primary/15 text-foreground shadow-sm" : "hover:bg-secondary/70"
-                          )}
-                        >
-                          {r.matchedInTitle ? (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                              <NotebookPen size={13} className="feather" />
+              <div className="scrollbar-thin mb-2 max-h-[280px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 shadow-[0_16px_36px_rgba(0,0,0,0.5)] backdrop-blur-md">
+                {/* Search input row */}
+                <div className="flex h-10 items-center gap-2 border-b border-border/60 px-3 transition-colors duration-100 hover:bg-secondary/40">
+                  <Search size={14} className="shrink-0 text-muted-foreground/60" />
+                  <input
+                    ref={inputRef}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search saved notes…"
+                    aria-label="Search notes"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  {value && (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      onClick={() => setValue("")}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-100 hover:bg-secondary/70 hover:text-foreground"
+                      style={{ animation: "fade-in 150ms ease-out both" }}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Results */}
+                <div ref={resultsRef} className="scrollbar-thin p-1">
+                  {results.length === 0 ? (
+                    <div
+                      className="flex flex-col items-center justify-center gap-1 px-4 py-8 text-center"
+                      style={{ animation: "fade-in 250ms ease-out both" }}
+                    >
+                      <span className="mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-secondary text-muted-foreground/60 shadow-sm">
+                        <Search size={15} />
+                      </span>
+                      <span className="text-[13px] font-medium text-foreground">
+                        {trimmedQuery ? `No notes match "${trimmedQuery}"` : "Type to search your saved notes"}
+                      </span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {trimmedQuery ? "Adjust your search to try again" : "Search by title or content"}
+                      </span>
+                    </div>
+                  ) : (
+                    results.map((r, i) => {
+                      const sectionChanged = i === 0 || r.matchedInTitle !== results[i - 1].matchedInTitle;
+                      return (
+                        <Fragment key={r.note.id}>
+                          {sectionChanged && (
+                            <div
+                              className="px-2.5 pb-1 pt-2 text-[10.5px] font-semibold tracking-wider text-muted-foreground/80 uppercase"
+                              style={{ animation: "fade-in 150ms ease-out both", animationDelay: `${i * 30}ms` }}
+                            >
+                              {r.matchedInTitle ? "Notes" : "Content matches"}
                             </div>
-                          ) : (
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
-                              <FileText size={13} className="feather" />
-                            </div>
                           )}
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {r.matchedInTitle ? (
-                              <Highlight text={r.note.title} query={trimmedQuery} />
-                            ) : (
-                              <Highlight text={notePreview(r.note, trimmedQuery)} query={trimmedQuery} />
-                            )}
-                          </span>
-                          <CornerDownLeft
-                            size={12}
+                          <button
+                            data-result={i}
+                            onClick={() => openResult(r.note)}
+                            onMouseEnter={() => setSel(i)}
                             className={cn(
-                              "feather shrink-0 transition-opacity",
-                              i === sel ? "opacity-100 text-primary" : "opacity-0"
+                              "focus-ring group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] text-foreground transition-all duration-150",
+                              i === sel ? "bg-primary/15 text-foreground shadow-sm" : "hover:bg-secondary/70"
                             )}
-                          />
-                        </button>
-                      </Fragment>
-                    );
-                  })
-                )}
+                            style={{ animation: "fade-in 200ms ease-out both", animationDelay: `${i * 30}ms` }}
+                          >
+                            {r.matchedInTitle ? (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
+                                <NotebookPen size={13} className="feather" />
+                              </div>
+                            ) : (
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                                <FileText size={13} className="feather" />
+                              </div>
+                            )}
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {r.matchedInTitle ? (
+                                <Highlight text={r.note.title} query={trimmedQuery} />
+                              ) : (
+                                <Highlight text={notePreview(r.note, trimmedQuery)} query={trimmedQuery} />
+                              )}
+                            </span>
+                            <CornerDownLeft
+                              size={12}
+                              className={cn(
+                                "feather shrink-0 transition-opacity duration-150",
+                                i === sel ? "opacity-100 text-primary" : "opacity-0"
+                              )}
+                            />
+                          </button>
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Keyboard hints */}
                 {results.length > 0 && (
-                  <div className="mt-2 flex items-center justify-between border-t border-border/60 px-2.5 pt-2 text-[10.5px] text-muted-foreground">
+                  <div
+                    className="flex items-center justify-between border-t border-border/60 px-2.5 py-2 text-[10.5px] text-muted-foreground"
+                    style={{ animation: "fade-in 200ms ease-out both", animationDelay: `${results.length * 30}ms` }}
+                  >
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1">
                         <kbd className="rounded border border-border/70 bg-secondary/80 px-1 py-0.5 font-mono text-[9.5px] font-medium text-foreground">↵</kbd> Open
