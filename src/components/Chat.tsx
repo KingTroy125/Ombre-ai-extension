@@ -5,7 +5,6 @@ import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";
 import { Message, ThinkingBubble } from "./Message";
 import { Input } from "./Input";
-import { QuickActionBar } from "./QuickActionBar";
 import { useSettings } from "../hooks/useSettings";
 
 const SUGGESTIONS = [
@@ -22,7 +21,7 @@ interface ChatProps {
   onOpenNote?: (id: string) => void;
 }
 
-export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote }: ChatProps) {
+export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote: _onOpenNote }: ChatProps) {
   const { sendMessage, stopGeneration, isThinking, statusNote } = useChat({
     conversation,
     onUpdateConversation,
@@ -140,9 +139,6 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
         isThinking={isThinking}
         onStop={stopGeneration}
       />
-
-      {/* Standalone quick-action tool, docked at the very bottom center. */}
-      <QuickActionBar onOpenNote={onOpenNote} />
     </div>
   );
 }

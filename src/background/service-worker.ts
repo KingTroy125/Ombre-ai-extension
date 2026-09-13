@@ -224,17 +224,12 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     return false;
   }
 
-  if (message.type === "OMBRE_ADD_TO_CHAT") {
-    // Selections inside an iframe (e.g. Gmail's compose box) have their own
-    // isolated content-script instance with no edge panel of its own — relay
-    // this up to the top frame, which does have one.
-    const tabId = sender.tab?.id;
-    if (tabId != null) {
-      chrome.tabs
-        .sendMessage(tabId, { type: "OMBRE_ADD_TO_CHAT", text: message.text }, { frameId: 0 })
-        .catch(() => {
-          // Top frame's content script isn't ready/present — nothing more to do.
-        });
+  if (message.type === "OMBRE_OPEN_SIDEPANEL") {
+    // Content scripts can't call chrome.sidePanel.open() themselves — open
+    // the side panel (the Chrome UI, i.e. the "main chat") for this window.
+    const windowId = sender.tab?.windowId;
+    if (windowId != null) {
+      chrome.sidePanel.open({ windowId }).catch(() => {});
     }
     sendResponse({ status: "ok" });
     return false;
