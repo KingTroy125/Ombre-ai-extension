@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Minimal shape of the Web Speech API we rely on — TypeScript's DOM lib
-// doesn't ship types for it since it's still non-standard (webkit-prefixed).
+// Minimal shape of the Web Speech API we rely on
 interface SpeechRecognitionResultLike {
   isFinal: boolean;
   0: { transcript: string };
@@ -16,7 +15,7 @@ interface SpeechRecognitionLike {
   lang: string;
   onresult: ((e: SpeechRecognitionEventLike) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
   start: () => void;
   stop: () => void;
 }
@@ -27,6 +26,7 @@ export function useSpeechToText(onResult: OnResult) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const isListeningRef = useRef(false);
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
 
@@ -59,8 +59,23 @@ export function useSpeechToText(onResult: OnResult) {
       if (final) onResultRef.current(final.trim(), true);
       else if (interim) onResultRef.current(interim.trim(), false);
     };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+
+    recognition.onend = () => {
+      isListeningRef.current = false;
+      setIsListening(false);
+    };
+
+    recognition.onerror = (e) => {
+      // "no-speech" and "aborted" are expected — don't treat as error
+      if (e.error === "no-speech" || e.error === "aborted") {
+        isListeningRef.current = false;
+        setIsListening(false);
+        return;
+      }
+      // For other errors (e.g. "not-allowed"), still update state
+      isListeningRef.current = false;
+      setIsListening(false);
+    };
 
     recognitionRef.current = recognition;
     return () => {
@@ -72,13 +87,16 @@ export function useSpeechToText(onResult: OnResult) {
       } catch {
         // already stopped
       }
+      isListeningRef.current = false;
+      setIsListening(false);
     };
   }, []);
 
   const start = useCallback(() => {
-    if (!recognitionRef.current) return;
+    if (!recognitionRef.current || isListeningRef.current) return;
     try {
       recognitionRef.current.start();
+      isListeningRef.current = true;
       setIsListening(true);
     } catch {
       // start() throws if already running — ignore
@@ -86,18 +104,23 @@ export function useSpeechToText(onResult: OnResult) {
   }, []);
 
   const stop = useCallback(() => {
+    if (!isListeningRef.current) return;
     try {
       recognitionRef.current?.stop();
     } catch {
       // already stopped
     }
+    isListeningRef.current = false;
     setIsListening(false);
   }, []);
 
   const toggle = useCallback(() => {
-    if (isListening) stop();
-    else start();
-  }, [isListening, start, stop]);
+    if (isListeningRef.current) {
+      stop();
+    } else {
+      start();
+    }
+  }, [start, stop]);
 
   return { isListening, isSupported, start, stop, toggle };
 }
