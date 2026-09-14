@@ -252,9 +252,9 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
               </div>
             )}
 
-            {/* Gradient-ringed input bar */}
-            <div className="rounded-[16px] bg-gradient-to-r from-primary via-fuchsia-400 to-primary p-[1.5px] shadow-[0_12px_28px_-4px_rgba(0,0,0,0.45)] transition-shadow focus-within:shadow-[0_0_0_3px_rgba(108,99,255,0.25),0_12px_28px_-4px_rgba(0,0,0,0.45)]">
-              <div className="flex items-center gap-2.5 rounded-[14.5px] bg-card/95 px-3 py-2 backdrop-blur-md">
+            {/* Input bar */}
+            <div className="rounded-xl border border-border/40 bg-card/95 shadow-[0_12px_28px_-4px_rgba(0,0,0,0.45)] backdrop-blur-md transition-shadow focus-within:ring-2 focus-within:ring-primary/30">
+              <div className="flex items-center gap-2.5 rounded-[14.5px] bg-transparent px-3 py-2">
                 {/* Mode Indicator Pill */}
                 {justSaved ? (
                   <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[11.5px] font-semibold text-emerald-400 shadow-sm animate-in fade-in">

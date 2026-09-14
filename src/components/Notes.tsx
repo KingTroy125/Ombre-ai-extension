@@ -136,22 +136,25 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-5 p-6">
-      <div>
-        <h1 className="text-[16px] font-semibold text-foreground">Notes</h1>
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+      <div className="border-b border-border/70 pb-4">
+        <div className="flex items-center gap-2">
+          <NotebookPen size={16} className="feather text-primary" />
+          <h1 className="text-[16px] font-semibold text-foreground">Notes</h1>
+        </div>
         <p className="mt-1 text-[12.5px] text-muted-foreground">
           Save notes here, or apply them anytime to an email or text field on any webpage.
         </p>
       </div>
 
       {/* Quick Note Capture Bar */}
-      <div className="rounded-xl border border-border/80 bg-gradient-to-r from-primary/10 via-fuchsia-500/5 to-primary/10 p-3 shadow-sm">
-        <div className="flex items-center gap-2.5">
+      <div className="rounded-xl border border-border/80 bg-card/95 p-3 shadow-sm">
+        <div className="flex flex-col gap-2.5 sm:flex-row">
           <input
             value={quickTitle}
             onChange={(e) => setQuickTitle(e.target.value)}
             placeholder="Title…"
-            className="w-32 shrink-0 rounded-md bg-background/60 px-2 py-1.5 text-[11.5px] font-semibold text-foreground/80 placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="w-full rounded-md bg-background/60 px-2 py-1.5 text-[11.5px] font-semibold text-foreground/80 placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 sm:w-32 sm:shrink-0"
           />
           <input
             value={quickText}
@@ -168,7 +171,7 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
           <button
             onClick={handleQuickAdd}
             disabled={!quickText.trim()}
-            className="focus-ring flex h-8 shrink-0 items-center gap-1 rounded-lg bg-gradient-to-br from-primary to-fuchsia-500 px-3 text-[11.5px] font-semibold text-primary-foreground shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100"
+            className="focus-ring flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-gradient-to-br from-primary to-fuchsia-500 px-3 text-[11.5px] font-semibold text-primary-foreground shadow-sm transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 sm:justify-start"
           >
             <Plus size={13} className="feather" />
             Add
@@ -177,18 +180,18 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 rounded-lg border border-border/40 bg-card/95 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-primary/30">
           <Search size={13} className="feather absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search notes…"
-            className="focus-ring w-full rounded-lg border border-input bg-card py-2 pl-8 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground"
+            className="focus-ring w-full rounded-[7px] bg-transparent py-2 pl-8 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground"
           />
         </div>
         <button
           onClick={startNew}
-          className="focus-ring flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-secondary/80"
+          className="focus-ring flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-secondary/80"
         >
           <Plus size={14} className="feather" />
           Full editor
@@ -205,10 +208,10 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {visible.map((note) =>
             note.id === editingId ? (
-              <div key={note.id} className="col-span-2 flex flex-col gap-3 rounded-xl border border-primary/50 bg-card p-4">
+              <div key={note.id} className="col-span-full flex flex-col gap-3 rounded-xl border border-primary/50 bg-card p-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-muted-foreground">Title</label>
                   <input
