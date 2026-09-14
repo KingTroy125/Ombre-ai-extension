@@ -335,28 +335,18 @@ function guaranteeSpaceKeyWorks(el: HTMLTextAreaElement) {
 // Used by both the edge panel's chat view and the selection-toolbar result
 // card's loading state, so the two vanilla-DOM surfaces match the popup/side
 // panel's React ThinkingIndicator exactly.
-const THINKING_SPARKLE_SVG = `
-  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">
-    <defs>
-      <linearGradient id="thinking-grad" gradientUnits="userSpaceOnUse" x1="5" y1="4" x2="20" y2="20">
-        <stop offset="0" stop-color="currentColor" stop-opacity="1" />
-        <stop offset="1" stop-color="currentColor" stop-opacity="0.4" />
-      </linearGradient>
-    </defs>
-    <path class="thinking-glyph-main" d="M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z" fill="url(#thinking-grad)" />
-    <path class="thinking-glyph-twinkle" d="M 19 2.5 C 19.18 4.32 19.68 4.82 21.5 5 C 19.68 5.18 19.18 5.68 19 7.5 C 18.82 5.68 18.32 5.18 16.5 5 C 18.32 4.82 18.82 4.32 19 2.5 Z" fill="currentColor" />
-  </svg>
-`;
 
 function thinkingIndicatorHtml(words: string[]): string {
-  const word = words[0] ?? "";
-  const longest = words.reduce((a, b) => (a.length >= b.length ? a : b), "");
+  const word = words[0] ?? "Thinking";
+  const elapsed = "0.0s";
+  const delays = [0, 90, 180, 90, 180, 270, 180, 270, 360];
+  const cells = delays.map((delay, i) => `
+    <span class="thinking-pixel ${i === 4 ? "center" : ""}" style="animation-delay: ${delay}ms;"></span>
+  `).join("");
   return `
-    ${THINKING_SPARKLE_SVG}
-    <span class="thinking-word-grid">
-      <span class="invisible-word">${escapeHtml(longest)}</span>
-      <span class="thinking-word" data-thinking-word>${escapeHtml(word)}</span>
-    </span>
+    <span class="thinking-grid" aria-hidden="true">${cells}</span>
+    <span class="thinking-label" style="background-image: linear-gradient(90deg, #8b8b95 35%, #f2f2f5 50%, #8b8b95 65%); background-size: 200% 100%; animation: shimmer-text 1.4s linear infinite;">${escapeHtml(word)}</span>
+    <span class="thinking-elapsed font-mono tabular-nums">${elapsed}</span>
   `;
 }
 
@@ -846,28 +836,25 @@ function initSelectionPopup() {
     .card-loading .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #6c63ff; border-radius: 999px; animation: spin 700ms linear infinite; flex-shrink: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .thinking-word-grid { display: inline-grid; overflow: hidden; font-size: 12.5px; }
-    .thinking-word-grid > * { grid-column: 1; grid-row: 1; }
-    .invisible-word { visibility: hidden; }
-    .thinking-word {
-      animation: thinking-word-in 0.32s cubic-bezier(0.4, 0, 0.2, 1), thinking-sheen 2s linear infinite;
-      background-image: linear-gradient(90deg, transparent calc(50% - 16px), #f2f2f5, transparent calc(50% + 16px)), linear-gradient(#8b8b95, #8b8b95);
-      background-repeat: no-repeat, padding-box;
-      background-size: 250% 100%, auto;
-      background-clip: text;
-      -webkit-background-clip: text;
-      color: transparent;
+    /* Pixel-grid thinking indicator */
+    .card-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: #8b8b95; }
+    .thinking-grid { display: grid; grid-template-columns: repeat(3, 4px); gap: 1.5px; flex-shrink: 0; }
+    .thinking-pixel { width: 4px; height: 4px; background: #a1a1aa; border-radius: 1px; opacity: 0.15; animation: pixel-on 650ms ease-in-out infinite; }
+    .thinking-pixel.center { border-radius: 50%; }
+    .thinking-label { font-size: 13px; font-weight: 500; color: transparent; background-clip: text; -webkit-background-clip: text; animation: shimmer-text 1.4s linear infinite; }
+    .thinking-elapsed { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: #8b8b95; margin-left: 4px; }
+
+    @keyframes pixel-on {
+      0%, 100% { opacity: 0.07; }
+      50% { opacity: 1; }
     }
-    @keyframes thinking-word-in {
-      from { opacity: 0; transform: translateY(70%); filter: blur(3px); background-position: 100% center, 0 0; }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); background-position: 0% center, 0 0; }
+    @keyframes shimmer-text {
+      0% { background-position: 200% center; }
+      100% { background-position: -200% center; }
     }
-    @keyframes thinking-sheen {
-      from { background-position: 0% center, 0 0; }
-      to   { background-position: -200% center, 0 0; }
-    }
+
     @media (prefers-reduced-motion: reduce) {
-      .thinking-word, .card-loading .spinner { animation: none !important; }
+      .thinking-pixel, .thinking-label { animation: none !important; }
     }
 
     .card-footer { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }

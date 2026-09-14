@@ -25,8 +25,11 @@ type OnResult = (text: string, isFinal: boolean) => void;
 export function useSpeechToText(onResult: OnResult) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isListeningRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const restartTimerRef = useRef<number | null>(null);
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
 
@@ -38,6 +41,7 @@ export function useSpeechToText(onResult: OnResult) {
     const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!Ctor) {
       setIsSupported(false);
+      setError("Voice input is not supported in this browser.");
       return;
     }
     setIsSupported(true);
@@ -61,20 +65,34 @@ export function useSpeechToText(onResult: OnResult) {
     };
 
     recognition.onend = () => {
-      isListeningRef.current = false;
-      setIsListening(false);
-    };
-
-    recognition.onerror = (e) => {
-      // "no-speech" and "aborted" are expected — don't treat as error
-      if (e.error === "no-speech" || e.error === "aborted") {
-        isListeningRef.current = false;
+      if (!isListeningRef.current) {
         setIsListening(false);
         return;
       }
-      // For other errors (e.g. "not-allowed"), still update state
+
+      // Chrome can end a recognition session during a normal pause. Restart
+      // it while the user still expects the mic to be active.
+      restartTimerRef.current = window.setTimeout(() => {
+        if (!isListeningRef.current) return;
+        try {
+          recognition.start();
+          setIsListening(true);
+        } catch {
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
+      }, 150);
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
       isListeningRef.current = false;
       setIsListening(false);
+      setError(
+        e.error === "not-allowed"
+          ? "Microphone permission was denied. Allow microphone access and try again."
+          : "Voice input is unavailable right now. Try again.",
+      );
     };
 
     recognitionRef.current = recognition;
@@ -87,19 +105,42 @@ export function useSpeechToText(onResult: OnResult) {
       } catch {
         // already stopped
       }
+      if (restartTimerRef.current !== null) {
+        window.clearTimeout(restartTimerRef.current);
+      }
       isListeningRef.current = false;
       setIsListening(false);
     };
   }, []);
 
-  const start = useCallback(() => {
-    if (!recognitionRef.current || isListeningRef.current) return;
+  const start = useCallback(async () => {
+    if (!recognitionRef.current || isListeningRef.current || isStartingRef.current) return;
+    isStartingRef.current = true;
+    setError(null);
+
     try {
+      // Request microphone access from the button's user gesture before
+      // starting Web Speech recognition in the extension page.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("microphone-unavailable");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+
       recognitionRef.current.start();
       isListeningRef.current = true;
       setIsListening(true);
-    } catch {
-      // start() throws if already running — ignore
+    } catch (cause) {
+      isListeningRef.current = false;
+      setIsListening(false);
+      const errorName = cause instanceof DOMException ? cause.name : "";
+      setError(
+        errorName === "NotAllowedError"
+          ? "Microphone access was denied. Allow it for this extension and try again."
+          : "Could not start the microphone. Check browser permission and try again.",
+      );
+    } finally {
+      isStartingRef.current = false;
     }
   }, []);
 
@@ -118,9 +159,9 @@ export function useSpeechToText(onResult: OnResult) {
     if (isListeningRef.current) {
       stop();
     } else {
-      start();
+      void start();
     }
   }, [start, stop]);
 
-  return { isListening, isSupported, start, stop, toggle };
+  return { isListening, isSupported, error, start, stop, toggle };
 }
