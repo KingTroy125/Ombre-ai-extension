@@ -1,28 +1,75 @@
-import { useEffect, useId, useState } from "react";
-import { cn } from "../lib/utils";
+import { useEffect, useState } from "react";
 
-const SPARKLE =
-  "M 12 3 C 12.9 7.4 16.6 11.1 21 12 C 16.6 12.9 12.9 16.6 12 21 C 11.1 16.6 7.4 12.9 3 12 C 7.4 11.1 11.1 7.4 12 3 Z";
-const TWINKLE =
-  "M 19 2.5 C 19.18 4.32 19.68 4.82 21.5 5 C 19.68 5.18 19.18 5.68 19 7.5 C 18.82 5.68 18.32 5.18 16.5 5 C 18.32 4.82 18.82 4.32 19 2.5 Z";
+const CHEVRON_DELAYS = Array.from({ length: 9 }, (_, i) => {
+  const r = Math.floor(i / 3);
+  const c = i % 3;
+  return (c + Math.abs(r - 1)) * 90;
+});
 
-interface ThinkingIndicatorProps {
-  /** Status words cycled through while visible, e.g. ["Thinking", "Reasoning"].
-   *  Pass a single word (or a single-item array) to pin the label without cycling. */
-  words: string[];
-  /** Milliseconds each word stays on screen before cycling. */
-  interval?: number;
-  className?: string;
+const ORBIT_ORDER = [0, 1, 2, 5, 8, 7, 6, 3];
+const ORBIT_DELAYS = Array.from({ length: 9 }, (_, i) => {
+  const k = ORBIT_ORDER.indexOf(i);
+  return k === -1 ? null : k * 110;
+});
+
+const PATTERNS = {
+  Drive: { delays: CHEVRON_DELAYS, dur: 650, round: false },
+  Dots: { delays: CHEVRON_DELAYS, dur: 650, round: true },
+  Orbit: { delays: ORBIT_DELAYS, dur: 950, round: false },
+};
+
+function LoaderGrid({
+  delays,
+  dur,
+  round,
+}: {
+  delays: (number | null)[];
+  dur: number;
+  round: boolean;
+}) {
+  return (
+    <span aria-hidden="true" className="grid shrink-0 grid-cols-[repeat(3,4px)] gap-[1.5px]">
+      {delays.map((delay, index) => (
+        <span
+          key={index}
+          className={`size-[4px] bg-foreground/15 ${round ? "rounded-full" : "rounded-[1px]"}`}
+          style={{
+            opacity: delay === null ? 0.07 : 0.15,
+            animation: delay === null ? "none" : `pixel-on ${dur}ms ease-in-out ${delay}ms infinite`,
+          }}
+        />
+      ))}
+    </span>
+  );
 }
 
-/**
- * A small morphing sparkle glyph + a status word that cycles and cross-fades
- * as it changes. Pure CSS animation (see .thinking-* rules in globals.css) —
- * no animation library needed since this only ever runs in Chrome.
- */
-export function ThinkingIndicator({ words, interval = 2600, className }: ThinkingIndicatorProps) {
+function useElapsed() {
+  const [ds, setDs] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setDs((d) => d + 1), 100);
+    return () => clearInterval(t);
+  }, []);
+  const total = ds / 10;
+  if (total < 60) return `${total.toFixed(1)}s`;
+  return `${Math.floor(total / 60)}m ${(total % 60).toFixed(1)}s`;
+}
+
+interface ThinkingIndicatorProps {
+  words: string[];
+  interval?: number;
+  className?: string;
+  variant?: "Drive" | "Dots" | "Orbit";
+}
+
+export function ThinkingIndicator({
+  words,
+  interval = 2600,
+  className,
+  variant = "Drive",
+}: ThinkingIndicatorProps) {
   const [index, setIndex] = useState(0);
-  const gradientId = useId();
+  const elapsed = useElapsed();
+  const { delays, dur, round } = PATTERNS[variant] ?? PATTERNS.Drive;
 
   useEffect(() => {
     setIndex(0);
@@ -32,29 +79,25 @@ export function ThinkingIndicator({ words, interval = 2600, className }: Thinkin
   }, [words, interval]);
 
   const word = words.length > 0 ? words[index % words.length] : "";
-  const longestWord = words.reduce((a, b) => (a.length >= b.length ? a : b), "");
+  const resolvedLabel = words.length > 0 ? word : "Churning";
 
   return (
-    <div role="status" className={cn("flex items-center gap-2 text-muted-foreground", className)}>
-      {words.length > 0 && <span className="sr-only">{words[0]}…</span>}
-      <svg aria-hidden="true" className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none">
-        <defs>
-          <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="5" y1="4" x2="20" y2="20">
-            <stop offset="0" stopColor="currentColor" stopOpacity="1" />
-            <stop offset="1" stopColor="currentColor" stopOpacity="0.4" />
-          </linearGradient>
-        </defs>
-        <path className="thinking-glyph-main" d={SPARKLE} fill={`url(#${gradientId})`} />
-        <path className="thinking-glyph-twinkle" d={TWINKLE} fill="currentColor" />
-      </svg>
-      {words.length > 0 && (
-        <span aria-hidden="true" className="thinking-word-grid text-[13px]">
-          <span className="invisible">{longestWord}</span>
-          <span key={word} className="thinking-word">
-            {word}
-          </span>
-        </span>
-      )}
+    <div role="status" className={`flex w-fit items-center gap-2.5 ${className ?? ""}`}>
+      <LoaderGrid delays={delays} dur={dur} round={round} />
+      <span
+        className="bg-clip-text text-[13px] font-medium text-transparent"
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%)",
+          backgroundSize: "200% 100%",
+          animation: "shimmer-text 1.4s linear infinite",
+        }}
+      >
+        {resolvedLabel}
+      </span>
+      <span className="font-mono text-[12px] text-muted-foreground tabular-nums">
+        {elapsed}
+      </span>
     </div>
   );
 }
