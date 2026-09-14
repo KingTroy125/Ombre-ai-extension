@@ -54,7 +54,7 @@ export function SidePanel() {
   }
 
   return (
-    <div className="flex h-screen w-screen min-w-0 overflow-hidden bg-background">
+    <div className="relative flex h-screen w-screen min-w-0 overflow-hidden bg-background">
       <Sidebar
         conversations={conversations}
         activeId={activeId}
@@ -73,11 +73,11 @@ export function SidePanel() {
         onOpenSettings={() => setView("settings")}
       />
       {view === "settings" ? (
-        <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className={`min-w-0 flex-1 overflow-y-auto ${sidebarCollapsed ? "pl-14" : ""}`}>
           <Settings />
         </div>
       ) : view === "notes" ? (
-        <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className={`min-w-0 flex-1 overflow-y-auto ${sidebarCollapsed ? "pl-14" : ""}`}>
           <Notes focusNoteId={focusNoteId} onClearFocus={() => setFocusNoteId(null)} />
         </div>
       ) : (
