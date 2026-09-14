@@ -32,6 +32,17 @@ export default {
         "sidebar-accent-foreground": "var(--sidebar-accent-foreground)",
         "sidebar-border": "var(--sidebar-border)",
         "sidebar-ring": "var(--sidebar-ring)",
+        surface: "var(--surface)",
+        "hover-2": "var(--hover-2)",
+        ink: "var(--ink)",
+        "ink-2": "var(--ink-2)",
+        "ink-3": "var(--ink-3)",
+        line: "var(--line)",
+        field: "var(--field)",
+      },
+      boxShadow: {
+        overlay: "var(--shadow-overlay)",
+        hairline: "var(--shadow-hairline)",
       },
       borderRadius: {
         lg: "var(--radius)",

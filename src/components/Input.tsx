@@ -24,7 +24,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   };
 
-  const { isListening, isSupported, toggle: toggleMic } = useSpeechToText((text, isFinal) => {
+  const { isListening, isSupported, error: speechError, toggle: toggleMic } = useSpeechToText((text, isFinal) => {
     const base = baseValueRef.current;
     const combined = base ? `${base} ${text}` : text;
     setValue(combined);
@@ -54,7 +54,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
   };
 
   return (
-    <div className="border-t border-border bg-background/95 px-3 pb-3 pt-2.5 backdrop-blur">
+    <div className="border-border bg-background/95 px-3 pb-3 pt-2.5 backdrop-blur">
       {/* Gradient-bordered card: 1.5px purple gradient ring wrapping the whole
           input, matching the reference's colored-border pill treatment. */}
       <div className="rounded-2xl bg-gradient-to-r from-primary via-fuchsia-400 to-primary p-[1.5px] shadow-sm transition-shadow focus-within:shadow-[0_0_0_3px_rgba(108,99,255,0.15)]">
@@ -90,21 +90,25 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
-                {isSupported && (
-                  <button
-                    onClick={handleMicClick}
-                    disabled={disabled}
-                    title={isListening ? "Stop listening" : "Voice input"}
-                    className={cn(
-                      "focus-ring flex h-7 w-7 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100",
-                      isListening
-                        ? "bg-destructive text-destructive-foreground animate-pulse"
-                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    )}
-                  >
-                    <Mic size={15} className="feather" />
-                  </button>
-                )}
+                <button
+                  onClick={handleMicClick}
+                  disabled={disabled || !isSupported}
+                  title={
+                    isListening
+                      ? "Stop listening"
+                      : isSupported
+                        ? "Voice input"
+                        : "Voice input is not supported"
+                  }
+                  className={cn(
+                    "focus-ring flex h-7 w-7 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
+                    isListening
+                      ? "animate-pulse bg-destructive text-destructive-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <Mic size={15} className="feather" />
+                </button>
               </div>
 
               {isThinking ? (
@@ -126,6 +130,11 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
                 </button>
               )}
             </div>
+            {speechError && (
+              <p className="text-[10.5px] leading-snug text-destructive" role="alert">
+                {speechError}
+              </p>
+            )}
           </div>
         </div>
       </div>
