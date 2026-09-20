@@ -1,4 +1,4 @@
-import type { ChatMessage, RuntimeEvent } from "../lib/types";
+import type { ChatMessage, PageContentResult, RuntimeEvent } from "../lib/types";
 
 const hasRuntime = typeof chrome !== "undefined" && !!chrome.runtime?.id;
 
@@ -57,4 +57,26 @@ export function onRuntimeEvent(handler: (event: RuntimeEvent) => void): () => vo
   const listener = (message: RuntimeEvent) => handler(message);
   chrome.runtime.onMessage.addListener(listener);
   return () => chrome.runtime.onMessage.removeListener(listener);
+}
+
+/**
+ * Asks the background worker to extract the active tab's title, URL, and
+ * readable body text. Returns a PageContentResult.
+ */
+export function getPageContent(): Promise<PageContentResult> {
+  if (!hasRuntime) {
+    return Promise.resolve({
+      success: false,
+      error: "Not running inside the extension shell.",
+    });
+  }
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "OMBRE_GET_PAGE_CONTENT" }, (response: PageContentResult) => {
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message ?? "Unknown error" });
+      } else {
+        resolve(response);
+      }
+    });
+  });
 }

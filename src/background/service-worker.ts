@@ -1,9 +1,12 @@
 // background/index.ts — Ombre AI Assistant service worker (MV3)
 import type { ChatMessage, RuntimeMessage } from "../lib/types";
+import { migrateSyncToLocal } from "../lib/storage";
 
 const TOQAN_GET_ANSWER_URL = "https://api.toqan.ai/api/get_answer";
 const DEFAULT_CREATE_URL = "https://api.toqan.ai/api/create_conversation";
 const CONTEXT_MENU_ID = "toqan-ask-selected";
+
+void migrateSyncToLocal().catch(() => undefined);
 
 // ── Overload detection ────────────────────────────────────────────────────
 
@@ -250,14 +253,49 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     sendResponse({ status: "ok" });
     return false;
   }
-});
 
-// Extension action opens the side panel directly.
-chrome.action.onClicked.addListener(async (tab) => {
-  if (chrome.sidePanel && tab.windowId) {
-    await chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+  if (message.type === "OMBRE_GET_PAGE_CONTENT") {
+    // Must return true so the channel stays open until the async response fires.
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) {
+        sendResponse({ success: false, error: "No active tab found." });
+        return;
+      }
+      // chrome.scripting.executeScript is available in MV3 with the
+      // "scripting" permission — it never needs the content script to be
+      // pre-injected, so it works on any page.
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => ({
+            title: document.title,
+            url: location.href,
+            // Grab innerText of the body; strip excessive whitespace and cap length.
+            text: (document.body?.innerText ?? "")
+              .replace(/[ \t]{2,}/g, " ")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim()
+              .slice(0, 15000),
+          }),
+        });
+        const result = results?.[0]?.result as { title: string; url: string; text: string } | undefined;
+        if (result) {
+          sendResponse({ success: true, data: result });
+        } else {
+          sendResponse({ success: false, error: "Could not read page content." });
+        }
+      } catch (err) {
+        sendResponse({ success: false, error: (err as Error).message || "Script execution failed." });
+      }
+    });
+    return true; // keep channel open for async sendResponse
   }
 });
+
+// Keep the action click behavior as the browser default so the popup can open.
+// If the user wants the side panel, they can open it from the UI instead of
+// intercepting the extension icon action and blocking the popup.
 
 // ── Async handler broadcasting replies to all extension views ────────────
 
@@ -318,7 +356,7 @@ interface ToqanCallResult {
 }
 
 async function callToqanAPI(userMessage: string, signal?: AbortSignal): Promise<ToqanCallResult> {
-  const settings = await chrome.storage.sync.get(["toqan_settings"]);
+  const settings = await chrome.storage.local.get(["toqan_settings"]);
   const stored: { apiKey?: string; agentId?: string; apiEndpoint?: string } =
     settings["toqan_settings"] || {};
 
