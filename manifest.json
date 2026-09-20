@@ -40,9 +40,11 @@
     "storage",
     "contextMenus",
     "activeTab",
-    "sidePanel"
+    "sidePanel",
+    "scripting"
   ],
   "host_permissions": [
-    "https://api.toqan.ai/*"
+    "https://api.toqan.ai/*",
+    "<all_urls>"
   ]
 }
