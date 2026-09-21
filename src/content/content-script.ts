@@ -1,6 +1,10 @@
 // content/index.ts — floating response panel for "Ask Ombre AI" context menu action.
 // Runs in an isolated shadow root so host-page CSS can't leak in or out.
 import { NOTES_KEY, createNote, notePreview, searchNotes, type Note } from "../lib/notes";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { LauncherDock } from "./LauncherDock";
+import tailwindCss from "../styles/globals.css?inline";
 
 // ── Extension-context safety ──────────────────────────────────────────────
 // When the extension is reloaded/updated (dev iteration, or a normal
@@ -581,6 +585,9 @@ const SELECTION_PROMPTS: Record<SelectionAction, (text: string) => string> = {
     `Make the following text shorter and more concise while keeping the meaning. Return ONLY the shortened text with no preamble, quotes, or explanation:\n\n${text}`,
 };
 
+// Blob avatar (same character as src/assets/avatar.svg), inlined so it renders
+// inside shadow DOM without needing web_accessible_resources.
+const BLOB_AVATAR_SVG = `<svg class="blob-avatar" viewBox="-125 -125 250 250" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><mask id="ombre-blob-mask" maskUnits="userSpaceOnUse" x="-158" y="-158" width="316" height="316"><path d="M100.26 0.3C100.26 3.58 100.1 6.88 99.78 10.15C99.46 13.42 98.98 16.68 98.34 19.9C97.7 23.12 96.91 26.32 95.96 29.46C95.01 32.6 93.9 35.71 92.65 38.75C91.4 41.78 89.99 44.76 88.45 47.66C86.91 50.55 85.22 53.38 83.41 56.11C81.59 58.84 79.64 61.49 77.56 64.03C75.49 66.57 73.28 69.01 70.97 71.34C68.66 73.66 66.23 75.87 63.7 77.96C61.18 80.04 58.54 82 55.82 83.83C53.1 85.65 50.28 87.35 47.4 88.9C44.52 90.44 41.55 91.86 38.53 93.11C35.51 94.37 32.42 95.48 29.29 96.43C26.16 97.39 22.98 98.19 19.77 98.83C16.57 99.47 13.32 99.95 10.06 100.27C6.81 100.6 3.53 100.76 0.26 100.76C-3 100.76 -6.29 100.6 -9.54 100.27C-12.79 99.95 -16.04 99.47 -19.25 98.83C-22.45 98.19 -25.64 97.39 -28.77 96.43C-31.89 95.48 -34.99 94.37 -38.01 93.11C-41.02 91.86 -44 90.44 -46.88 88.9C-49.76 87.35 -52.58 85.65 -55.29 83.83C-58.01 82 -60.65 80.04 -63.18 77.96C-65.7 75.87 -68.14 73.66 -70.45 71.34C-72.76 69.01 -74.97 66.57 -77.04 64.03C-79.11 61.49 -81.07 58.84 -82.88 56.11C-84.7 53.38 -86.39 50.55 -87.93 47.66C-89.47 44.76 -90.88 41.78 -92.13 38.75C-93.38 35.71 -94.48 32.6 -95.43 29.46C-96.38 26.32 -97.18 23.12 -97.82 19.9C-98.45 16.68 -98.94 13.42 -99.26 10.15C-99.58 6.88 -99.74 3.58 -99.74 0.3C-99.74 -2.98 -99.58 -6.28 -99.26 -9.54C-98.94 -12.81 -98.45 -16.08 -97.82 -19.3C-97.18 -22.51 -96.38 -25.72 -95.43 -28.86C-94.48 -32 -93.38 -35.11 -92.13 -38.14C-90.88 -41.17 -89.47 -44.16 -87.93 -47.05C-86.39 -49.95 -84.7 -52.78 -82.88 -55.51C-81.07 -58.24 -79.11 -60.89 -77.04 -63.43C-74.97 -65.96 -72.76 -68.41 -70.45 -70.73C-68.14 -73.05 -65.7 -75.27 -63.18 -77.35C-60.65 -79.43 -58.01 -81.4 -55.29 -83.22C-52.58 -85.05 -49.76 -86.74 -46.88 -88.29C-44 -89.84 -41.02 -91.25 -38.01 -92.51C-34.99 -93.76 -31.89 -94.87 -28.77 -95.83C-25.64 -96.78 -22.45 -97.58 -19.25 -98.22C-16.04 -98.86 -12.79 -99.35 -9.54 -99.67C-6.29 -99.99 -3 -100.15 0.26 -100.15C3.53 -100.15 6.81 -99.99 10.06 -99.67C13.32 -99.35 16.57 -98.86 19.77 -98.22C22.98 -97.58 26.16 -96.78 29.29 -95.83C32.42 -94.87 35.51 -93.76 38.53 -92.51C41.55 -91.25 44.52 -89.84 47.4 -88.29C50.28 -86.74 53.1 -85.05 55.82 -83.22C58.54 -81.4 61.18 -79.43 63.7 -77.35C66.23 -75.27 68.66 -73.05 70.97 -70.73C73.28 -68.41 75.49 -65.96 77.56 -63.43C79.64 -60.89 81.59 -58.24 83.41 -55.51C85.22 -52.78 86.91 -49.95 88.45 -47.05C89.99 -44.16 91.4 -41.17 92.65 -38.14C93.9 -35.11 95.01 -32 95.96 -28.86C96.91 -25.72 97.7 -22.51 98.34 -19.3C98.98 -16.08 99.46 -12.81 99.78 -9.54C100.1 -6.28 100.26 -2.98 100.26 0.3Z" fill="#fff"/><path d="M-10.5 -11.5A10.5 10.5 0 0 1 0 -22L0 -22A10.5 10.5 0 0 1 10.5 -11.5L10.5 11.5A10.5 10.5 0 0 1 0 22L0 22A10.5 10.5 0 0 1 -10.5 11.5Z" transform="matrix(0.98,-0.07,0.05,0.99,-17.2,-8.03)" opacity="1" fill="#000"/><path d="M-10.5 -11.5A10.5 10.5 0 0 1 0 -22L0 -22A10.5 10.5 0 0 1 10.5 -11.5L10.5 11.5A10.5 10.5 0 0 1 0 22L0 22A10.5 10.5 0 0 1 -10.5 11.5Z" transform="matrix(0.93,-0.01,0.05,0.99,37.56,-10.43)" opacity="1" fill="#000"/></mask></defs><path d="M100.26 0.3C100.26 3.58 100.1 6.88 99.78 10.15C99.46 13.42 98.98 16.68 98.34 19.9C97.7 23.12 96.91 26.32 95.96 29.46C95.01 32.6 93.9 35.71 92.65 38.75C91.4 41.78 89.99 44.76 88.45 47.66C86.91 50.55 85.22 53.38 83.41 56.11C81.59 58.84 79.64 61.49 77.56 64.03C75.49 66.57 73.28 69.01 70.97 71.34C68.66 73.66 66.23 75.87 63.7 77.96C61.18 80.04 58.54 82 55.82 83.83C53.1 85.65 50.28 87.35 47.4 88.9C44.52 90.44 41.55 91.86 38.53 93.11C35.51 94.37 32.42 95.48 29.29 96.43C26.16 97.39 22.98 98.19 19.77 98.83C16.57 99.47 13.32 99.95 10.06 100.27C6.81 100.6 3.53 100.76 0.26 100.76C-3 100.76 -6.29 100.6 -9.54 100.27C-12.79 99.95 -16.04 99.47 -19.25 98.83C-22.45 98.19 -25.64 97.39 -28.77 96.43C-31.89 95.48 -34.99 94.37 -38.01 93.11C-41.02 91.86 -44 90.44 -46.88 88.9C-49.76 87.35 -52.58 85.65 -55.29 83.83C-58.01 82 -60.65 80.04 -63.18 77.96C-65.7 75.87 -68.14 73.66 -70.45 71.34C-72.76 69.01 -74.97 66.57 -77.04 64.03C-79.11 61.49 -81.07 58.84 -82.88 56.11C-84.7 53.38 -86.39 50.55 -87.93 47.66C-89.47 44.76 -90.88 41.78 -92.13 38.75C-93.38 35.71 -94.48 32.6 -95.43 29.46C-96.38 26.32 -97.18 23.12 -97.82 19.9C-98.45 16.68 -98.94 13.42 -99.26 10.15C-99.58 6.88 -99.74 3.58 -99.74 0.3C-99.74 -2.98 -99.58 -6.28 -99.26 -9.54C-98.94 -12.81 -98.45 -16.08 -97.82 -19.3C-97.18 -22.51 -96.38 -25.72 -95.43 -28.86C-94.48 -32 -93.38 -35.11 -92.13 -38.14C-90.88 -41.17 -89.47 -44.16 -87.93 -47.05C-86.39 -49.95 -84.7 -52.78 -82.88 -55.51C-81.07 -58.24 -79.11 -60.89 -77.04 -63.43C-74.97 -65.96 -72.76 -68.41 -70.45 -70.73C-68.14 -73.05 -65.7 -75.27 -63.18 -77.35C-60.65 -79.43 -58.01 -81.4 -55.29 -83.22C-52.58 -85.05 -49.76 -86.74 -46.88 -88.29C-44 -89.84 -41.02 -91.25 -38.01 -92.51C-34.99 -93.76 -31.89 -94.87 -28.77 -95.83C-25.64 -96.78 -22.45 -97.58 -19.25 -98.22C-16.04 -98.86 -12.79 -99.35 -9.54 -99.67C-6.29 -99.99 -3 -100.15 0.26 -100.15C3.53 -100.15 6.81 -99.99 10.06 -99.67C13.32 -99.35 16.57 -98.86 19.77 -98.22C22.98 -97.58 26.16 -96.78 29.29 -95.83C32.42 -94.87 35.51 -93.76 38.53 -92.51C41.55 -91.25 44.52 -89.84 47.4 -88.29C50.28 -86.74 53.1 -85.05 55.82 -83.22C58.54 -81.4 61.18 -79.43 63.7 -77.35C66.23 -75.27 68.66 -73.05 70.97 -70.73C73.28 -68.41 75.49 -65.96 77.56 -63.43C79.64 -60.89 81.59 -58.24 83.41 -55.51C85.22 -52.78 86.91 -49.95 88.45 -47.05C89.99 -44.16 91.4 -41.17 92.65 -38.14C93.9 -35.11 95.01 -32 95.96 -28.86C96.91 -25.72 97.7 -22.51 98.34 -19.3C98.98 -16.08 99.46 -12.81 99.78 -9.54C100.1 -6.28 100.26 -2.98 100.26 0.3Z" fill="#f9f9f9"/><g mask="url(#ombre-blob-mask)"><rect x="-158" y="-158" width="316" height="316" fill="#6c63ff"/></g></svg>`;
 function initSelectionPopup() {
   if (document.getElementById(SELECTION_HOST_ID)) return;
 
@@ -687,6 +694,10 @@ function initSelectionPopup() {
     }
     .tbtn.send:hover { background: #7d75ff; }
     .tbtn.send svg { stroke: #fff; stroke-width: 2.5; }
+
+    .tbtn.addchat { color: #60a5fa; }
+    .tbtn.addchat:hover { background: rgba(96,165,250,0.15); color: #93c5fd; }
+    .tbtn.addchat svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; width: 13px; height: 13px; }
 
     .tbtn.expand-btn {
       width: 28px;
@@ -810,7 +821,7 @@ function initSelectionPopup() {
 
     .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
     .card-brand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
-    .card-dot { width: 20px; height: 20px; border-radius: 7px; background: #6c63ff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+    .card-brand svg.blob-avatar { width: 20px; height: 20px; border-radius: 7px; flex-shrink: 0; }
     .card-close { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 4px; border-radius: 6px; display: flex; transition: background 0.12s, color 0.12s; }
     .card-close:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
     .card-close svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
@@ -948,6 +959,11 @@ function initSelectionPopup() {
         Improve
       </button>
       <span class="toolbar-divider"></span>
+      <button class="tbtn addchat" type="button" title="Add selected text to side panel chat">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Add to Chat
+      </button>
+      <span class="toolbar-divider"></span>
       <div class="toolbar-more-actions">
         <button class="tbtn" data-action="shorter" type="button">
           <svg viewBox="0 0 24 24"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -1017,7 +1033,7 @@ function initSelectionPopup() {
   card.className = "card";
   card.innerHTML = `
     <div class="card-header">
-      <div class="card-brand"><span class="card-dot">O</span> Ombre AI</div>
+      <div class="card-brand">${BLOB_AVATAR_SVG} Ombre AI</div>
       <button class="card-close" aria-label="Close" title="Close">
         <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -1427,6 +1443,15 @@ if (input) {
 
   toolbar.querySelector(".tbtn.savenote")?.addEventListener("click", saveSelectionAsNote);
   moreMenu.querySelector(".more-item.savenote")?.addEventListener("click", saveSelectionAsNote);
+
+  // Add to chat — send selected text to side panel chat
+  toolbar.querySelector(".tbtn.addchat")?.addEventListener("click", () => {
+    if (!lastSelectedText) return;
+    const text = lastSelectedText;
+    hideToolbar();
+    safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text }).catch(() => {});
+    safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
+  });
 
   // Custom prompt input + send button
   const toolbarInput = toolbar.querySelector(".toolbar-input") as HTMLInputElement;
@@ -2109,7 +2134,7 @@ function initQuickTool() {
     }
   });
 
-  // ── Enable/disable via Settings (sync storage) ──────────────────────────
+  // ── Enable/disable via Settings (local storage) ─────────────────────────
   const applyQuickNotesEnabled = (enabled: boolean) => {
     quickNotesEnabledCache = enabled;
     if (!dock) return;
@@ -2122,14 +2147,14 @@ function initQuickTool() {
     }
   };
   try {
-    chrome.storage?.sync?.get(["toqan_settings"], (res) => {
+    chrome.storage?.local?.get(["toqan_settings"], (res) => {
       const s = (res as Record<string, unknown>)?.["toqan_settings"] as Record<string, unknown> | undefined;
       if (s && typeof s.quickNotesEnabled === "boolean") applyQuickNotesEnabled(s.quickNotesEnabled as boolean);
     });
   } catch {}
   try {
     chrome.storage?.onChanged?.addListener((changes, area) => {
-      if (area !== "sync") return;
+      if (area !== "local") return;
       const c = (changes as Record<string, chrome.storage.StorageChange>)["toqan_settings"];
       const nv = c?.newValue as Record<string, unknown> | undefined;
       if (nv && typeof nv.quickNotesEnabled === "boolean") applyQuickNotesEnabled(nv.quickNotesEnabled as boolean);
@@ -2192,118 +2217,53 @@ function initSidePanelLauncher() {
   const style = document.createElement("style");
   style.textContent = `
     :host { all: initial; }
-    * { box-sizing: border-box; font-family: "Inter", system-ui, -apple-system, sans-serif; }
-
     .launcher {
       position: fixed;
       top: 50%;
-      right: 0;
-      transform: translateY(-50%) translateX(calc(100% - 6px));
+      right: 10px;
+      transform: translateY(-50%) translateX(calc(100% + 18px));
       z-index: 2147483646;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 4px;
-      background: rgba(24, 24, 27, 0.92);
-      border-radius: 14px 0 0 14px;
-      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       opacity: 0;
       pointer-events: none;
-      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .launcher > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .launcher.visible {
       transform: translateY(-50%) translateX(0);
       opacity: 1;
       pointer-events: auto;
     }
-
-    .launcher-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      background: #1c1c1e;
-      transition: background 0.15s, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s;
-    }
-    .launcher-btn:active { transform: scale(0.88); }
-
-    .launcher-btn-chat {
-      position: relative;
-    }
-    .launcher-btn-chat::after {
-      content: "";
-      position: absolute;
-      inset: -2px;
-      border-radius: 12px;
-      background: transparent;
-      transition: background 0.2s, box-shadow 0.2s;
-    }
-    .launcher-btn-chat:hover {
-      background: #27272a;
-    }
-    .launcher-btn-chat:hover::after {
-      background: rgba(108, 99, 255, 0.08);
-      box-shadow: 0 0 0 1.5px rgba(108, 99, 255, 0.3);
-    }
-    .launcher-btn-chat svg {
-      width: 20px;
-      height: 20px;
-      fill: none;
-      stroke: #a1a1aa;
-      stroke-width: 1.75;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: stroke 0.15s;
-    }
-    .launcher-btn-chat:hover svg { stroke: #f5f5f5; }
-
-    .launcher-btn-settings svg {
-      width: 18px;
-      height: 18px;
-      fill: none;
-      stroke: #71717a;
-      stroke-width: 1.75;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: stroke 0.15s;
-    }
-    .launcher-btn-settings:hover {
-      background: #27272a;
-    }
-    .launcher-btn-settings:hover svg { stroke: #d4d4d8; }
-
-    .launcher-btn-divider {
-      width: 24px;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.06);
-      align-self: center;
-    }
   `;
+
+  // Tailwind utilities for the React dock — the shadow root gets none of the
+  // document styles, and .dark carries the theme variables.
+  const tailwind = document.createElement("style");
+  tailwind.textContent = tailwindCss;
 
   const pill = document.createElement("div");
-  pill.className = "launcher";
-  pill.innerHTML = `
-    <button class="launcher-btn launcher-btn-chat" type="button" aria-label="Open Ombre AI chat" title="Open Ombre AI chat">
-      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-    </button>
-    <div class="launcher-btn-divider"></div>
-    <button class="launcher-btn launcher-btn-settings" type="button" aria-label="Settings" title="Settings">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-  `;
-  pill.querySelector<HTMLElement>(".launcher-btn-chat")!.addEventListener("click", () => {
-    safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
-  });
+  pill.className = "launcher dark";
+  const mount = document.createElement("div");
+  pill.appendChild(mount);
+  root.append(style, tailwind, pill);
 
-  pill.querySelector<HTMLElement>(".launcher-btn-settings")!.addEventListener("click", () => {
-    safeSendMessage({ type: "OPEN_SETTINGS" }).catch(() => {});
-  });
+  createRoot(mount).render(
+    createElement(LauncherDock, {
+      onOpenChat: () => {
+        safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
+      },
+      onOpenSettings: () => {
+        safeSendMessage({ type: "OPEN_SETTINGS" }).catch(() => {});
+      },
+    })
+  );
 
   onContextLost.push(() => {
     pill.style.opacity = "0.55";
@@ -2333,7 +2293,6 @@ function initSidePanelLauncher() {
   pill.addEventListener("mouseenter", () => clearTimeout(hideTimer));
   pill.addEventListener("mouseleave", () => scheduleHide());
 
-  root.append(style, pill);
 }
 
 if (document.readyState === "loading") {
