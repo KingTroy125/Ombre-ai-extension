@@ -40,7 +40,9 @@ export type RuntimeMessage =
   | { type: "TOQAN_PING" }
   | { type: "OPEN_SETTINGS" }
   | { type: "OMBRE_OPEN_SIDEPANEL" }
-  | { type: "OMBRE_INSERT_NOTE"; text: string };
+  | { type: "OMBRE_INSERT_NOTE"; text: string }
+  | { type: "OMBRE_GET_PAGE_CONTENT" }
+  | { type: "OMBRE_ADD_TO_CHAT"; text: string };
 
 export type RuntimeEvent =
   | { type: "TOQAN_REPLY"; reply: string; conversationId: string }
@@ -48,3 +50,13 @@ export type RuntimeEvent =
   | { type: "TOQAN_OVERLOADED"; message: string; conversationId: string }
   | { type: "TOQAN_CONTEXT_RESPONSE"; query: string; response: string }
   | { type: "TOQAN_CONTEXT_ERROR"; error: string };
+
+export interface PageContent {
+  title: string;
+  url: string;
+  text: string;
+}
+
+export type PageContentResult =
+  | { success: true; data: PageContent }
+  | { success: false; error: string };
