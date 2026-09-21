@@ -19,9 +19,13 @@ interface ChatProps {
   onEnsureConversation: () => Conversation;
   /** Opens a saved note (by id) in the sidepanel's Notes page. */
   onOpenNote?: (id: string) => void;
+  /** Text to add to chat from an external source (e.g. "Add to chat" from selection toolbar). */
+  pendingAddText?: string | null;
+  /** Called after pendingAddText has been consumed. */
+  onAddTextSent?: () => void;
 }
 
-export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote: _onOpenNote }: ChatProps) {
+export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote: _onOpenNote, pendingAddText, onAddTextSent }: ChatProps) {
   const { sendMessage, stopGeneration, isThinking, statusNote } = useChat({
     conversation,
     onUpdateConversation,
@@ -46,6 +50,14 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
   const handleSend = (text: string) => {
     sendMessage(text);
   };
+
+  // Send pending text from "Add to chat" (selection toolbar)
+  useEffect(() => {
+    if (pendingAddText) {
+      sendMessage(pendingAddText);
+      onAddTextSent?.();
+    }
+  }, [pendingAddText, sendMessage, onAddTextSent]);
 
   const handleRate = (messageId: string, rating: "up" | "down") => {
     if (!conversation) return;
@@ -194,9 +206,8 @@ function LandingView({
           <button
             key={i}
             onClick={() => setPage(i)}
-            className={`h-1.5 rounded-full transition-all ${
-              page === i ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"
-            }`}
+            className={`h-1.5 rounded-full transition-all ${page === i ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"
+              }`}
           />
         ))}
       </div>
