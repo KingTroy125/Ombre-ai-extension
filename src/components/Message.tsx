@@ -5,12 +5,12 @@ import { createNote, loadNotes, noteTitleFrom, saveNotes } from "../lib/notes";
 import { Markdown } from "./Markdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { cn, formatTime, stripMarkdown } from "../lib/utils";
-import ombreAvatar from "../assets/ombre-avatar.jpg";
+import avatarUrl from "../assets/avatar.svg";
 
 function AssistantAvatar() {
   return (
-    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
-      <img src={ombreAvatar} alt="Ombre AI" className="h-full w-full object-cover" />
+    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden">
+      <img src={avatarUrl} alt="Ombre AI" className="h-full w-full" draggable={false} />
     </div>
   );
 }
