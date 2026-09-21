@@ -1,6 +1,7 @@
 // Shared notes model — used by the sidepanel Notes page and the quick-action
 // tool (sidepanel + content script). Storage lives in chrome.storage.local so
 // notes saved from any page show up everywhere.
+import { queueStorageWrite } from "./storage";
 
 export interface Note {
   id: string;
@@ -34,7 +35,7 @@ export async function loadNotes(): Promise<Note[]> {
 export async function saveNotes(notes: Note[]): Promise<void> {
   if (hasChromeStorage) {
     try {
-      await chrome.storage.local.set({ [NOTES_KEY]: notes });
+      await queueStorageWrite(NOTES_KEY, notes);
     } catch {
       // context died — nothing more we can do
     }
