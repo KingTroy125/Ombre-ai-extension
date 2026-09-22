@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, Mic, Sparkles, Square, X } from "lucide-react";
+import { ArrowUp, Mic, Square } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useSpeechToText } from "../hooks/useSpeechToText";
 
@@ -13,7 +13,6 @@ interface InputProps {
 
 export function Input({ onSend, disabled, isThinking, onStop, placeholder }: InputProps) {
   const [value, setValue] = useState("");
-  const [showTip, setShowTip] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const baseValueRef = useRef("");
 
@@ -59,21 +58,6 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
       <div className="rounded-[18px] bg-gradient-to-r from-primary via-[#9b64ed] to-[#e98df1] p-px shadow-overlay transition-shadow focus-within:ring-2 focus-within:ring-ring/30">
         {/* Solid field covers the gradient; the body inherits this background */}
         <div className="overflow-hidden rounded-[17px] bg-field">
-          {showTip && (
-            <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2 text-foreground">
-              <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-foreground">
-                <Sparkles size={12} className="feather shrink-0 text-primary" />
-                <span className="truncate">Select text on any page to ask, improve, or rephrase it</span>
-              </span>
-              <button
-                onClick={() => setShowTip(false)}
-                title="Dismiss"
-                className="focus-ring shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <X size={12} className="feather" />
-              </button>
-            </div>
-          )}
 
           <div className="flex flex-col gap-2 px-3 pb-2.5 pt-3">
             <textarea
