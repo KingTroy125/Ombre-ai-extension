@@ -14,23 +14,23 @@ interface LauncherDockProps {
 export function LauncherDock({ onOpenChat, onOpenSettings }: LauncherDockProps) {
   return (
     <Dock
-      size={46}
-      className="flex-col items-center gap-2 border border-white/10 bg-[#121215]/90 px-1.5 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+      size={40}
+      className="flex-col items-center gap-1 border border-white/10 bg-[#121215]/90 px-1 py-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.45)] backdrop-blur-xl"
     >
       <DockItem
         onClick={onOpenChat}
         aria-label="Open Ombre AI chat"
         className="rounded-xl hover:bg-white/5"
       >
-        <BlobIcon size={24} />
+        <BlobIcon size={21} />
       </DockItem>
-      <DockSeparator className="mx-0 my-1 h-px w-6" />
+      <DockSeparator className="mx-0 my-0.5 h-px w-5" />
       <DockItem
         onClick={onOpenSettings}
         aria-label="Open settings"
         className="rounded-xl text-muted-foreground hover:bg-white/5 hover:text-foreground"
       >
-        <Settings size={18} />
+        <Settings size={16} />
       </DockItem>
     </Dock>
   );
