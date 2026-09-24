@@ -1449,8 +1449,12 @@ if (input) {
     if (!lastSelectedText) return;
     const text = lastSelectedText;
     hideToolbar();
-    safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text }).catch(() => {});
-    safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
+    safeSendMessage({ type: "OMBRE_ADD_TO_CHAT", text }).then((result) => {
+      const response = result as { ok?: boolean; error?: string } | undefined;
+      if (response?.ok === false) showQuickToast(response.error || "Could not add text to chat.");
+    }).catch((error: Error) => {
+      showQuickToast(error.message || "Could not add text to chat.");
+    });
   });
 
   // Custom prompt input + send button
@@ -2230,6 +2234,9 @@ function initSidePanelLauncher() {
       display: flex;
       align-items: center;
       justify-content: center;
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
     }
     .launcher > div {
       display: flex;
@@ -2241,6 +2248,7 @@ function initSidePanelLauncher() {
       opacity: 1;
       pointer-events: auto;
     }
+    .launcher.dragging { cursor: grabbing; transition: opacity 0.2s ease; }
   `;
 
   // Tailwind utilities for the React dock — the shadow root gets none of the
@@ -2250,18 +2258,35 @@ function initSidePanelLauncher() {
 
   const pill = document.createElement("div");
   pill.className = "launcher dark";
+  try {
+    const savedTop = Number(localStorage.getItem("ombre-launcher-top"));
+    if (Number.isFinite(savedTop) && savedTop > 0) {
+      pill.style.top = `${Math.max(56, Math.min(window.innerHeight - 56, savedTop))}px`;
+    }
+  } catch { /* Storage may be disabled for this page. */ }
   const mount = document.createElement("div");
   pill.appendChild(mount);
   root.append(style, tailwind, pill);
 
+  const runDockAction = (type: "OMBRE_OPEN_SIDEPANEL" | "OPEN_SETTINGS", label: string) => {
+    safeSendMessage({ type }).then((result) => {
+      const response = result as { ok?: boolean; error?: string } | undefined;
+      if (response?.ok === false) {
+        pill.title = `${label}: ${response.error || "The browser could not open it."}`;
+        console.error(`[Toqan] ${pill.title}`);
+      } else {
+        pill.title = "";
+      }
+    }).catch((error: Error) => {
+      pill.title = `${label}: ${error.message}`;
+      console.error(`[Toqan] ${pill.title}`);
+    });
+  };
+
   createRoot(mount).render(
     createElement(LauncherDock, {
-      onOpenChat: () => {
-        safeSendMessage({ type: "OMBRE_OPEN_SIDEPANEL" }).catch(() => {});
-      },
-      onOpenSettings: () => {
-        safeSendMessage({ type: "OPEN_SETTINGS" }).catch(() => {});
-      },
+      onOpenChat: () => runDockAction("OMBRE_OPEN_SIDEPANEL", "Could not open chat"),
+      onOpenSettings: () => runDockAction("OPEN_SETTINGS", "Could not open settings"),
     })
   );
 
@@ -2292,6 +2317,54 @@ function initSidePanelLauncher() {
 
   pill.addEventListener("mouseenter", () => clearTimeout(hideTimer));
   pill.addEventListener("mouseleave", () => scheduleHide());
+
+  let dragStartY = 0;
+  let dragStartTop = 0;
+  let dragged = false;
+  let activePointerId: number | null = null;
+  pill.addEventListener("pointerdown", (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    activePointerId = event.pointerId;
+    dragStartY = event.clientY;
+    dragStartTop = pill.getBoundingClientRect().top + pill.getBoundingClientRect().height / 2;
+    dragged = false;
+    clearTimeout(hideTimer);
+  });
+  pill.addEventListener("pointermove", (event: PointerEvent) => {
+    if (activePointerId !== event.pointerId) return;
+    const delta = event.clientY - dragStartY;
+    if (!dragged && Math.abs(delta) < 4) return;
+    if (!dragged) pill.setPointerCapture(event.pointerId);
+    dragged = true;
+    pill.classList.add("dragging", "visible");
+    const half = pill.getBoundingClientRect().height / 2;
+    const center = Math.max(half + 4, Math.min(window.innerHeight - half - 4, dragStartTop + delta));
+    pill.style.top = `${center}px`;
+    pill.style.transform = "translateY(-50%) translateX(0)";
+  });
+  const finishDrag = (event: PointerEvent) => {
+    if (activePointerId !== event.pointerId) return;
+    activePointerId = null;
+    if (pill.hasPointerCapture(event.pointerId)) pill.releasePointerCapture(event.pointerId);
+    pill.classList.remove("dragging");
+    if (dragged) {
+      try {
+        localStorage.setItem("ombre-launcher-top", String(pill.getBoundingClientRect().top + pill.getBoundingClientRect().height / 2));
+      } catch { /* Keep dragging available when storage is disabled. */ }
+      event.preventDefault();
+      setTimeout(() => { dragged = false; }, 0);
+    } else {
+      scheduleHide();
+    }
+  };
+  pill.addEventListener("pointerup", finishDrag);
+  pill.addEventListener("pointercancel", finishDrag);
+  pill.addEventListener("click", (event) => {
+    if (dragged) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
 
 }
 
