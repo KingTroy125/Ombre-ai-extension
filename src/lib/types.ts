@@ -42,7 +42,8 @@ export type RuntimeMessage =
   | { type: "OMBRE_OPEN_SIDEPANEL" }
   | { type: "OMBRE_INSERT_NOTE"; text: string }
   | { type: "OMBRE_GET_PAGE_CONTENT" }
-  | { type: "OMBRE_ADD_TO_CHAT"; text: string };
+  | { type: "OMBRE_ADD_TO_CHAT"; text: string; requestId?: string }
+  | { type: "OMBRE_SIDE_PANEL_READY" };
 
 export type RuntimeEvent =
   | { type: "TOQAN_REPLY"; reply: string; conversationId: string }
