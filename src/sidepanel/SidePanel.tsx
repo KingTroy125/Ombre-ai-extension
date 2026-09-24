@@ -36,13 +36,17 @@ export function SidePanel() {
 
   // Listen for "Add to chat" messages from content scripts
   useEffect(() => {
-    const handler = (message: RuntimeMessage) => {
+    const handler = (message: RuntimeMessage, _sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
       if (message.type === "OMBRE_ADD_TO_CHAT" && message.text) {
         setPendingAddText(message.text);
         setView("chat");
+        sendResponse({ received: message.requestId });
+        return true;
       }
+      return false;
     };
     chrome.runtime.onMessage.addListener(handler);
+    chrome.runtime.sendMessage({ type: "OMBRE_SIDE_PANEL_READY" }).catch(() => {});
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, []);
 
