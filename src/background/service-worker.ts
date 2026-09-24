@@ -5,6 +5,59 @@ import { migrateSyncToLocal } from "../lib/storage";
 const TOQAN_GET_ANSWER_URL = "https://api.toqan.ai/api/get_answer";
 const DEFAULT_CREATE_URL = "https://api.toqan.ai/api/create_conversation";
 const CONTEXT_MENU_ID = "toqan-ask-selected";
+const ADD_TO_CHAT_QUEUE_KEY = "ombrePendingAddToChat";
+
+interface PendingAddToChat {
+  id: string;
+  text: string;
+}
+
+let addToChatQueueOperations: Promise<void> = Promise.resolve();
+let drainingAddToChatQueue = false;
+
+function updateAddToChatQueue(update: (queue: PendingAddToChat[]) => PendingAddToChat[]): Promise<void> {
+  const operation = addToChatQueueOperations.then(async () => {
+    const stored = await chrome.storage.session.get(ADD_TO_CHAT_QUEUE_KEY);
+    const queue = Array.isArray(stored[ADD_TO_CHAT_QUEUE_KEY])
+      ? stored[ADD_TO_CHAT_QUEUE_KEY] as PendingAddToChat[]
+      : [];
+    await chrome.storage.session.set({ [ADD_TO_CHAT_QUEUE_KEY]: update(queue) });
+  });
+  addToChatQueueOperations = operation.catch(() => undefined);
+  return operation;
+}
+
+async function drainAddToChatQueue(): Promise<void> {
+  if (drainingAddToChatQueue) return;
+  drainingAddToChatQueue = true;
+  try {
+    while (true) {
+      await addToChatQueueOperations;
+      const stored = await chrome.storage.session.get(ADD_TO_CHAT_QUEUE_KEY);
+      const queue = Array.isArray(stored[ADD_TO_CHAT_QUEUE_KEY])
+        ? stored[ADD_TO_CHAT_QUEUE_KEY] as PendingAddToChat[]
+        : [];
+      const pending = queue[0];
+      if (!pending) return;
+
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: "OMBRE_ADD_TO_CHAT",
+          text: pending.text,
+          requestId: pending.id,
+        });
+        if (response?.received !== pending.id) return;
+      } catch {
+        // The panel may still be mounting. Its ready message retries delivery.
+        return;
+      }
+
+      await updateAddToChatQueue((items) => items.filter((item) => item.id !== pending.id));
+    }
+  } finally {
+    drainingAddToChatQueue = false;
+  }
+}
 
 void migrateSyncToLocal().catch(() => undefined);
 
@@ -142,10 +195,22 @@ function settleActiveRequest(conversationId: string) {
 // ── Context menu setup ─────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: CONTEXT_MENU_ID,
-    title: 'Ask Ombre AI: "%s"',
-    contexts: ["selection"],
+  // onInstalled fires for updates as well as first install; the old menu can
+  // still exist, so remove it before recreating it to avoid duplicate IDs.
+  chrome.contextMenus.removeAll(() => {
+    if (chrome.runtime.lastError) {
+      console.warn("[Toqan] Could not reset context menus:", chrome.runtime.lastError.message);
+      return;
+    }
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_ID,
+      title: 'Ask Ombre AI: "%s"',
+      contexts: ["selection"],
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn("[Toqan] Could not create context menu:", chrome.runtime.lastError.message);
+      }
+    });
   });
   if (chrome.sidePanel) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
@@ -211,6 +276,36 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     return false;
   }
 
+  if (message.type === "OMBRE_ADD_TO_CHAT") {
+    const tabId = sender.tab?.id;
+    if (!message.text.trim() || tabId == null) {
+      sendResponse({ ok: false, error: "Could not read the selected text or identify its tab." });
+      return false;
+    }
+
+    const requestId = `${Date.now()}-${Math.random()}`;
+    // Invoke open immediately while the originating selection click is still
+    // a user gesture. Queue persistence and panel delivery can finish after.
+    const openPanel = chrome.sidePanel.open({ tabId });
+    void updateAddToChatQueue((queue) => [...queue, { id: requestId, text: message.text }])
+      .then(() => drainAddToChatQueue())
+      .catch((error: Error) => console.error("[Toqan] Could not queue selected text:", error));
+
+    openPanel.then(() => sendResponse({ ok: true })).catch((error: Error) => {
+      console.error("[Toqan] Could not open chat panel for selected text:", error);
+      sendResponse({ ok: false, error: error.message || "Could not open the chat panel." });
+    });
+    return true;
+  }
+
+  if (message.type === "OMBRE_SIDE_PANEL_READY") {
+    sendResponse({ ok: true });
+    void drainAddToChatQueue().catch((error: Error) => {
+      console.error("[Toqan] Could not deliver selected text:", error);
+    });
+    return false;
+  }
+
   if (message.type === "TOQAN_STOP") {
     cancelActiveRequests(message.conversationId);
     sendResponse({ status: "ok" });
@@ -218,24 +313,31 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
   }
 
   if (message.type === "OPEN_SETTINGS") {
-    if (chrome.runtime.openOptionsPage) {
-      chrome.runtime.openOptionsPage();
-    } else {
-      chrome.tabs.create({ url: chrome.runtime.getURL("options.html") });
-    }
-    sendResponse({ status: "ok" });
-    return false;
+    const openPage = chrome.runtime.openOptionsPage
+      ? chrome.runtime.openOptionsPage()
+      : chrome.tabs.create({ url: chrome.runtime.getURL("options.html") }).then(() => undefined);
+    openPage.then(() => sendResponse({ ok: true })).catch((error: Error) => {
+      console.error("[Toqan] Could not open settings:", error);
+      sendResponse({ ok: false, error: error.message || "Could not open settings." });
+    });
+    return true;
   }
 
   if (message.type === "OMBRE_OPEN_SIDEPANEL") {
     // Content scripts can't call chrome.sidePanel.open() themselves — open
     // the side panel (the Chrome UI, i.e. the "main chat") for this window.
+    const tabId = sender.tab?.id;
     const windowId = sender.tab?.windowId;
-    if (windowId != null) {
-      chrome.sidePanel.open({ windowId }).catch(() => {});
-    }
-    sendResponse({ status: "ok" });
-    return false;
+    const openPanel = tabId != null
+      ? chrome.sidePanel.open({ tabId })
+      : windowId != null
+        ? chrome.sidePanel.open({ windowId })
+        : Promise.reject(new Error("Could not identify the active browser tab."));
+    openPanel.then(() => sendResponse({ ok: true })).catch((error: Error) => {
+      console.error("[Toqan] Could not open chat panel:", error);
+      sendResponse({ ok: false, error: error.message || "Could not open the chat panel." });
+    });
+    return true;
   }
 
   if (message.type === "OMBRE_INSERT_NOTE") {
