@@ -43,6 +43,9 @@
     "sidePanel",
     "scripting"
   ],
+  "optional_permissions": [
+    "microphone"
+  ],
   "host_permissions": [
     "https://api.toqan.ai/*",
     "<all_urls>"
