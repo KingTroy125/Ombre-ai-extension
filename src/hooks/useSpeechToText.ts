@@ -119,8 +119,26 @@ export function useSpeechToText(onResult: OnResult) {
     setError(null);
 
     try {
-      // Request microphone access from the button's user gesture before
-      // starting Web Speech recognition in the extension page.
+      // Step 1: Request the optional "microphone" permission via the Chrome
+      // permissions API. This triggers Chrome's native extension-permission
+      // dialog and persists the grant across sessions.
+      const hasPermission = await new Promise<boolean>((resolve) => {
+        if (typeof chrome !== "undefined" && chrome.permissions?.request) {
+          chrome.permissions.request({ permissions: ["microphone"] }, (granted) => {
+            resolve(!!granted);
+          });
+        } else {
+          // Not running inside the extension shell (e.g. local dev)
+          resolve(true);
+        }
+      });
+
+      if (!hasPermission) {
+        throw new DOMException("Permission denied by user.", "NotAllowedError");
+      }
+
+      // Step 2: Warm up the media stream so the browser opens the mic device.
+      // Stop the tracks immediately — Web Speech API manages its own stream.
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("microphone-unavailable");
       }
@@ -134,11 +152,16 @@ export function useSpeechToText(onResult: OnResult) {
       isListeningRef.current = false;
       setIsListening(false);
       const errorName = cause instanceof DOMException ? cause.name : "";
-      setError(
-        errorName === "NotAllowedError"
-          ? "Microphone access was denied. Allow it for this extension and try again."
-          : "Could not start the microphone. Check browser permission and try again.",
-      );
+      const errorMsg = cause instanceof Error ? cause.message : "";
+      if (errorName === "NotAllowedError") {
+        setError(
+          "Microphone access was denied. Click the mic button again to grant permission, or allow it in Chrome's extension settings (chrome://extensions → Ombre AI → Site access → Microphone).",
+        );
+      } else if (errorMsg === "microphone-unavailable") {
+        setError("Microphone hardware is unavailable. Check that a mic is connected.");
+      } else {
+        setError("Could not start the microphone. Check browser permissions and try again.");
+      }
     } finally {
       isStartingRef.current = false;
     }
