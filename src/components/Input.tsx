@@ -1,10 +1,10 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, Mic, Square } from "lucide-react";
+import { ArrowUp, FileText, Mic, Square } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useSpeechToText } from "../hooks/useSpeechToText";
 
 interface InputProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, usePageContext?: boolean) => void;
   disabled?: boolean;
   isThinking?: boolean;
   onStop?: () => void;
@@ -13,6 +13,7 @@ interface InputProps {
 
 export function Input({ onSend, disabled, isThinking, onStop, placeholder }: InputProps) {
   const [value, setValue] = useState("");
+  const [pageContextOn, setPageContextOn] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const baseValueRef = useRef("");
 
@@ -39,9 +40,10 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
   const handleSend = () => {
     if (!value.trim() || disabled) return;
     if (isListening) toggleMic();
-    onSend(value);
+    onSend(value, pageContextOn);
     setValue("");
     baseValueRef.current = "";
+    setPageContextOn(false);
     requestAnimationFrame(autoresize);
   };
 
@@ -54,6 +56,16 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
 
   return (
     <div className="mx-auto w-full px-3 pb-3 pt-2.5">
+      {/* Page-context pill shown above the input box when the toggle is on */}
+      {pageContextOn && (
+        <div className="mb-1.5 flex items-center gap-1.5 px-1">
+          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+            <FileText size={11} className="feather" />
+            Using page content as context
+          </span>
+        </div>
+      )}
+
       {/* 1px gradient border: the gradient shows only through the p-px gap */}
       <div className="rounded-[18px] bg-gradient-to-r from-primary via-[#9b64ed] to-[#e98df1] p-px shadow-overlay transition-shadow focus-within:ring-2 focus-within:ring-ring/30">
         {/* Solid field covers the gradient; the body inherits this background */}
@@ -74,25 +86,42 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
             />
 
             <div className="flex items-center justify-between">
-              <button
-                onClick={handleMicClick}
-                disabled={disabled || !isSupported}
-                title={
-                  isListening
-                    ? "Stop listening"
-                    : isSupported
-                      ? "Voice input"
-                      : "Voice input is not supported"
-                }
-                className={cn(
-                  "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
-                  isListening
-                    ? "animate-pulse bg-destructive text-destructive-foreground"
-                    : "text-muted-foreground hover:bg-hover-2 hover:text-foreground",
-                )}
-              >
-                <Mic size={15} className="feather" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleMicClick}
+                  disabled={disabled || !isSupported}
+                  title={
+                    isListening
+                      ? "Stop listening"
+                      : isSupported
+                        ? "Voice input"
+                        : "Voice input is not supported"
+                  }
+                  className={cn(
+                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
+                    isListening
+                      ? "animate-pulse bg-destructive text-destructive-foreground"
+                      : "text-muted-foreground hover:bg-hover-2 hover:text-foreground",
+                  )}
+                >
+                  <Mic size={15} className="feather" />
+                </button>
+
+                {/* Page-context toggle */}
+                <button
+                  onClick={() => setPageContextOn((v) => !v)}
+                  disabled={disabled}
+                  title={pageContextOn ? "Remove page context" : "Ask about this page"}
+                  className={cn(
+                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
+                    pageContextOn
+                      ? "bg-primary/20 text-primary ring-1 ring-primary/40"
+                      : "text-muted-foreground hover:bg-hover-2 hover:text-foreground",
+                  )}
+                >
+                  <FileText size={15} className="feather" />
+                </button>
+              </div>
 
               {isThinking ? (
                 <button

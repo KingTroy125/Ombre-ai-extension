@@ -47,8 +47,8 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
   const lastMessageId = useRef<string | null>(null);
   const lastConversationId = useRef<string | null>(null);
 
-  const handleSend = (text: string) => {
-    sendMessage(text);
+  const handleSend = (text: string, usePageContext?: boolean) => {
+    sendMessage(text, usePageContext);
   };
 
   // Send pending text from "Add to chat" (selection toolbar)
