@@ -10,7 +10,7 @@ const MAX_PAGE_CHARS = 12000;
  * "summarize this page", "what is this article about", "tell me about this site".
  */
 const PAGE_INTENT_RE =
-  /\b(this|current)\s+(page|site|website|web\s*?site|webpage|web\s*?page|tab|article|url|link|document)\b|\bsummariz(?:e|ing)?\s+(this|it|that|the\s+page)\b|\babout\s+this\b|\bthis\s+(?:is\s+)?about\b|\bon\s+this\s+page\b/i;
+  /\b(this|current)\s+(page|site|website|web\s*?site|webpage|web\s*?page|tab|article|url|link|document)\b|\bsummariz(?:e|ing)?\s+(this|it|that|the\s+page)\b|\babout\s+this\b|\bthis\s+(?:is\s+)?about\b|\bon\s+this\s+page\b|\bread\s+this\b|\bwhat(?:'s|\s+is)?\s+(?:on|in)\s+this\b|\banalyze\s+this\b|\bthis\s+article\b/i;
 
 /**
  * Prepends the active tab's content as context to the first message of a
@@ -103,7 +103,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   }, [appendMessage]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, forcePageContext = false) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
@@ -134,7 +134,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
         // sent to the AI carries the page context.
         const pageIntent = PAGE_INTENT_RE.test(trimmed);
         let messagesToSend = nextMessages;
-        if (isFirstMessage || pageIntent) {
+        if (isFirstMessage || pageIntent || forcePageContext) {
           setStatusNote("Reading this page…");
           const pageResult = await getPageContent();
           setStatusNote(null);
