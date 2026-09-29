@@ -48,6 +48,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const activeConvoIdRef = useRef<string | null>(conversation?.id ?? null);
   const conversationsRef = useRef<Map<string, ChatMessage[]>>(new Map());
+  const pageContextByConversationRef = useRef<Map<string, PageContent>>(new Map());
   // Conversations whose generation the user explicitly stopped — late
   // replies/errors from those runs are dropped instead of appended.
   const stoppedConvosRef = useRef<Set<string>>(new Set());
@@ -133,14 +134,13 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
         // keep working). The bubble keeps the raw text; only the payload
         // sent to the AI carries the page context.
         const pageIntent = PAGE_INTENT_RE.test(trimmed);
-        let messagesToSend = nextMessages;
-        if (isFirstMessage || pageIntent || forcePageContext) {
+        const shouldLoadPage = isFirstMessage || pageIntent || forcePageContext;
+        if (shouldLoadPage) {
           setStatusNote("Reading this page…");
           const pageResult = await getPageContent();
           setStatusNote(null);
           if (pageResult.success) {
-            const contextualContent = buildContextualMessage(trimmed, pageResult.data);
-            messagesToSend = [...current, { ...userMessage, content: contextualContent }];
+            pageContextByConversationRef.current.set(convo.id, pageResult.data);
           } else if (pageIntent) {
             // The user explicitly asked about the page but the tab can't be
             // read (e.g. chrome:// pages, the web store, blank tabs). Say so
@@ -159,6 +159,11 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
             return;
           }
         }
+
+        const pageContext = pageContextByConversationRef.current.get(convo.id);
+        const messagesToSend = pageContext
+          ? [...current, { ...userMessage, content: buildContextualMessage(trimmed, pageContext) }]
+          : nextMessages;
         await sendChat(messagesToSend, convo.id);
       } catch (err) {
         setIsThinking(false);
