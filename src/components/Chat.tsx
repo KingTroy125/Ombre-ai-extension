@@ -176,7 +176,7 @@ function LandingView({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-5 sm:px-6 sm:py-8">
       {/* Agent activation block */}
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl">
           <img src={avatarUrl} alt="Ombre AI" className="h-11 w-11" draggable={false} />
         </div>
         <div>
