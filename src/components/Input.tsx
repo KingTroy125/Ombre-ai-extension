@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, FileText, Mic, Square } from "lucide-react";
+import { ArrowUp, FileText, Globe2, Mic, Square, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useSpeechToText } from "../hooks/useSpeechToText";
 
@@ -59,10 +59,16 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
       {/* Page-context pill shown above the input box when the toggle is on */}
       {pageContextOn && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1">
-          <span className="flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-            <FileText size={11} className="feather" />
-            Using page content as context
-          </span>
+          <button
+            type="button"
+            onClick={() => setPageContextOn(false)}
+            title="Remove page context from this message"
+            className="focus-ring inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/25 bg-primary/[0.08] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/45 hover:bg-primary/[0.12]"
+          >
+            <Globe2 size={13} className="shrink-0" />
+            <span className="truncate">Current page</span>
+            <X size={12} className="shrink-0 opacity-70" />
+          </button>
         </div>
       )}
 
