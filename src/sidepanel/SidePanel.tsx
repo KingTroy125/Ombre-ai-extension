@@ -68,11 +68,11 @@ export function SidePanel() {
   }, []);
 
   if (!loaded) {
-    return <div className="flex h-screen w-screen items-center justify-center bg-background" />;
+    return <div className="flex h-full w-full items-center justify-center bg-background" />;
   }
 
   return (
-    <div className="relative flex h-screen w-screen min-h-0 min-w-0 overflow-hidden bg-background">
+    <div className="relative flex h-full w-full min-h-0 min-w-0 overflow-hidden bg-background">
       <Sidebar
         conversations={conversations}
         activeId={activeId}
