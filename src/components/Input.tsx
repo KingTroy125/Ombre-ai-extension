@@ -55,7 +55,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
   };
 
   return (
-    <div className="mx-auto w-full px-3 pb-3 pt-2.5">
+    <div className="mx-auto w-full shrink-0 px-3 pb-3 pt-2.5">
       {/* Page-context pill shown above the input box when the toggle is on */}
       {pageContextOn && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1">
@@ -73,7 +73,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
       )}
 
       {/* 1px gradient border: the gradient shows only through the p-px gap */}
-      <div className="rounded-[18px] bg-gradient-to-r from-primary via-[#9b64ed] to-[#e98df1] p-px shadow-overlay transition-shadow focus-within:ring-2 focus-within:ring-ring/30">
+      <div className="min-w-0 rounded-[18px] bg-gradient-to-r from-primary via-[#9b64ed] to-[#e98df1] p-px shadow-overlay transition-shadow focus-within:ring-2 focus-within:ring-ring/30">
         {/* Solid field covers the gradient; the body inherits this background */}
         <div className="overflow-hidden rounded-[17px] bg-field">
 
@@ -104,7 +104,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
                         : "Voice input is not supported"
                   }
                   className={cn(
-                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
+                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 hover:bg-hover-2 active:bg-secondary disabled:cursor-not-allowed disabled:opacity-40",
                     isListening
                       ? "animate-pulse bg-destructive text-destructive-foreground"
                       : "text-muted-foreground hover:bg-hover-2 hover:text-foreground",
@@ -119,7 +119,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
                   disabled={disabled}
                   title={pageContextOn ? "Remove page context" : "Ask about this page"}
                   className={cn(
-                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100",
+                    "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 hover:bg-hover-2 active:bg-secondary disabled:cursor-not-allowed disabled:opacity-40",
                     pageContextOn
                       ? "bg-primary/20 text-primary ring-1 ring-primary/40"
                       : "text-muted-foreground hover:bg-hover-2 hover:text-foreground",
@@ -132,7 +132,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
               {isThinking ? (
                 <button
                   onClick={onStop}
-                  className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#ec86ff] text-primary-foreground shadow-hairline transition-transform hover:scale-105 active:scale-95"
+                  className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#ec86ff] text-primary-foreground shadow-hairline transition-[filter] duration-150 hover:brightness-105 active:brightness-95"
                   title="Stop"
                 >
                   <Square size={13} className="feather" fill="currentColor" />
@@ -141,7 +141,7 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
                 <button
                   onClick={handleSend}
                   disabled={disabled || !value.trim()}
-                  className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#ec86ff] text-primary-foreground shadow-hairline transition-transform hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100"
+                  className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#ec86ff] text-primary-foreground shadow-hairline transition-[filter] duration-150 hover:brightness-105 active:brightness-95 disabled:opacity-30"
                   title="Send"
                 >
                   <ArrowUp size={16} className="feather" />
