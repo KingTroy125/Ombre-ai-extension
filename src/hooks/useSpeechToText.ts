@@ -15,6 +15,7 @@ interface SpeechRecognitionLike {
   lang: string;
   onresult: ((e: SpeechRecognitionEventLike) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   start: () => void;
   stop: () => void;
@@ -64,7 +65,14 @@ export function useSpeechToText(onResult: OnResult) {
       else if (interim) onResultRef.current(interim.trim(), false);
     };
 
+    recognition.onstart = () => {
+      isListeningRef.current = true;
+      setIsListening(true);
+      setError(null);
+    };
+
     recognition.onend = () => {
+      restartTimerRef.current = null;
       if (!isListeningRef.current) {
         setIsListening(false);
         return;
@@ -98,6 +106,7 @@ export function useSpeechToText(onResult: OnResult) {
     recognitionRef.current = recognition;
     return () => {
       recognition.onresult = null;
+      recognition.onstart = null;
       recognition.onend = null;
       recognition.onerror = null;
       try {
@@ -113,38 +122,14 @@ export function useSpeechToText(onResult: OnResult) {
     };
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(() => {
     if (!recognitionRef.current || isListeningRef.current || isStartingRef.current) return;
     isStartingRef.current = true;
     setError(null);
-
     try {
-      // Step 1: Request the optional "microphone" permission via the Chrome
-      // permissions API. This triggers Chrome's native extension-permission
-      // dialog and persists the grant across sessions.
-      const hasPermission = await new Promise<boolean>((resolve) => {
-        if (typeof chrome !== "undefined" && chrome.permissions?.request) {
-          chrome.permissions.request({ permissions: ["microphone"] }, (granted) => {
-            resolve(!!granted);
-          });
-        } else {
-          // Not running inside the extension shell (e.g. local dev)
-          resolve(true);
-        }
-      });
-
-      if (!hasPermission) {
-        throw new DOMException("Permission denied by user.", "NotAllowedError");
-      }
-
-      // Step 2: Warm up the media stream so the browser opens the mic device.
-      // Stop the tracks immediately — Web Speech API manages its own stream.
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("microphone-unavailable");
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
-
+      // Start synchronously from the click handler. Deferring this behind a
+      // permission/getUserMedia await loses the browser's user activation and
+      // can prevent Chrome from opening the speech recognition mic prompt.
       recognitionRef.current.start();
       isListeningRef.current = true;
       setIsListening(true);
@@ -152,29 +137,25 @@ export function useSpeechToText(onResult: OnResult) {
       isListeningRef.current = false;
       setIsListening(false);
       const errorName = cause instanceof DOMException ? cause.name : "";
-      const errorMsg = cause instanceof Error ? cause.message : "";
-      if (errorName === "NotAllowedError") {
-        setError(
-          "Microphone access was denied. Click the mic button again to grant permission, or allow it in Chrome's extension settings (chrome://extensions → Ombre AI → Site access → Microphone).",
-        );
-      } else if (errorMsg === "microphone-unavailable") {
-        setError("Microphone hardware is unavailable. Check that a mic is connected.");
-      } else {
-        setError("Could not start the microphone. Check browser permissions and try again.");
-      }
+      setError(errorName === "NotAllowedError" || errorName === "SecurityError"
+        ? "Microphone access was denied. Allow microphone access in your browser settings and try again."
+        : "Could not start voice input. Check microphone access and try again.");
     } finally {
       isStartingRef.current = false;
     }
   }, []);
 
   const stop = useCallback(() => {
-    if (!isListeningRef.current) return;
+    isListeningRef.current = false;
+    if (restartTimerRef.current !== null) {
+      window.clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
     try {
       recognitionRef.current?.stop();
     } catch {
       // already stopped
     }
-    isListeningRef.current = false;
     setIsListening(false);
   }, []);
 
