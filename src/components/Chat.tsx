@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight, Code2, FileText, Globe2, Lightbulb, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Code2, FileText, Globe2, Lightbulb } from "lucide-react";
 import type { Conversation } from "../lib/types";
 import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";
 import { Message, ThinkingBubble } from "./Message";
 import { Input } from "./Input";
 import { useSettings } from "../hooks/useSettings";
+import avatarUrl from "../assets/avatar.svg";
 
 const SUGGESTIONS = [
   { icon: Lightbulb, label: "Explain a concept", prompt: "Explain how async/await works in JavaScript" },
@@ -105,10 +106,10 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
   }, [isThinking]);
 
   return (
-    <div className="flex h-full flex-1 flex-col bg-background">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-background">
       {hasMessages ? (
-        <div className="relative flex-1 overflow-hidden">
-          <div ref={containerRef} className="h-full overflow-y-auto px-4 py-4">
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div ref={containerRef} className="h-full min-h-0 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
             <div
               role="log"
               aria-relevant="additions"
@@ -172,11 +173,11 @@ function LandingView({
   settingsLoaded: boolean;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-5 sm:px-6 sm:py-8">
       {/* Agent activation block */}
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15">
-          <Sparkles size={26} className="feather text-primary" />
+          <img src={avatarUrl} alt="Ombre AI" className="h-11 w-11" draggable={false} />
         </div>
         <div>
           <h1 className="text-[18px] font-semibold text-foreground">Ombre AI</h1>
@@ -192,7 +193,7 @@ function LandingView({
         type="button"
         onClick={onAskPage}
         disabled={!hasApiKey}
-        className="focus-ring group/page relative mb-5 inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-left text-foreground transition-colors hover:border-primary/40 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+        className="chat-enter focus-ring group/page relative mb-5 inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-left text-foreground transition-colors duration-150 ease-out hover:border-primary/40 hover:bg-secondary active:bg-hover-2 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/15 text-primary">
           <Globe2 size={14} className="feather" />
