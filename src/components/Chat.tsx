@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight, Code2, FileText, Globe2, Lightbulb } from "lucide-react";
+import { ArrowDown, FileText } from "lucide-react";
 import type { Conversation } from "../lib/types";
 import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";
@@ -7,12 +7,6 @@ import { Message, ThinkingBubble } from "./Message";
 import { Input } from "./Input";
 import { useSettings } from "../hooks/useSettings";
 import avatarUrl from "../assets/avatar.svg";
-
-const SUGGESTIONS = [
-  { icon: Lightbulb, label: "Explain a concept", prompt: "Explain how async/await works in JavaScript" },
-  { icon: Code2, label: "Debug my code", prompt: "Help me debug this function: " },
-  { icon: FileText, label: "Summarize this page", prompt: "Summarize the key points of this page" },
-];
 
 interface ChatProps {
   conversation: Conversation | null;
@@ -138,8 +132,7 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
         </div>
       ) : (
         <LandingView
-          onPromptSelect={(prompt) => handleSend(prompt)}
-          onAskPage={() => handleSend("Help me understand this page and its key points.", true)}
+          onAskPage={() => handleSend("Summarize this page", true)}
           page={page}
           setPage={setPage}
           hasApiKey={hasApiKey}
@@ -158,14 +151,12 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
 }
 
 function LandingView({
-  onPromptSelect,
   onAskPage,
   page,
   setPage,
   hasApiKey,
   settingsLoaded,
 }: {
-  onPromptSelect: (prompt: string) => void;
   onAskPage: () => void;
   page: number;
   setPage: (n: number) => void;
@@ -184,7 +175,7 @@ function LandingView({
           <p className="mt-1 max-w-xs text-[13px] text-muted-foreground">
             {settingsLoaded && !hasApiKey
               ? "Add your Toqan API key in Settings to start chatting."
-              : "Ask a question, paste some text, or pick a starting point below."}
+              : "Ask a question or start with the current page."}
           </p>
         </div>
       </div>
@@ -193,35 +184,13 @@ function LandingView({
         type="button"
         onClick={onAskPage}
         disabled={!hasApiKey}
-        className="chat-enter focus-ring group/page relative mb-5 inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-left text-foreground transition-colors duration-150 ease-out hover:border-primary/40 hover:bg-secondary active:bg-hover-2 disabled:cursor-not-allowed disabled:opacity-40"
+        className="focus-ring group/page mb-6 inline-flex max-w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/15 text-primary">
-          <Globe2 size={14} className="feather" />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
+          <FileText size={15} className="feather" />
         </span>
-        <span className="max-w-[min(60vw,14rem)] truncate text-[12px] font-medium">Ask about this page</span>
-        <ArrowUpRight size={14} className="shrink-0 text-muted-foreground transition-colors group-hover/page:text-primary" />
-        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-0 z-20 hidden w-64 max-w-[calc(100vw-3rem)] rounded-lg border border-border bg-popover p-3 text-left shadow-overlay group-hover/page:block group-focus-visible/page:block">
-          <span className="block text-[12px] font-semibold text-foreground">Current page</span>
-          <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-            Read the open tab and keep its content in context for follow-up questions.
-          </span>
-        </span>
+        <span className="truncate">Help me understand this page and its key points</span>
       </button>
-
-      {/* Suggestion pills */}
-      <div className="mb-6 flex w-full max-w-sm flex-col gap-2">
-        {SUGGESTIONS.map(({ icon: Icon, label, prompt }) => (
-          <button
-            key={label}
-            onClick={() => onPromptSelect(prompt)}
-            disabled={!hasApiKey}
-            className="focus-ring flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-left text-[13px] text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-secondary disabled:opacity-40 disabled:hover:translate-y-0"
-          >
-            <Icon size={15} className="feather text-primary" />
-            {label}
-          </button>
-        ))}
-      </div>
 
       {/* Page-indicator dots */}
       <div className="flex items-center gap-1.5">
