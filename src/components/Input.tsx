@@ -13,7 +13,7 @@ interface InputProps {
 
 export function Input({ onSend, disabled, isThinking, onStop, placeholder }: InputProps) {
   const [value, setValue] = useState("");
-  const [pageContextOn, setPageContextOn] = useState(false);
+  const [pageContextOn, setPageContextOn] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const baseValueRef = useRef("");
 
@@ -43,7 +43,6 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
     onSend(value, pageContextOn);
     setValue("");
     baseValueRef.current = "";
-    setPageContextOn(false);
     requestAnimationFrame(autoresize);
   };
 
@@ -56,18 +55,23 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
 
   return (
     <div className="mx-auto w-full shrink-0 px-3 pb-3 pt-2.5">
-      {/* Page-context pill shown above the input box when the toggle is on */}
+      {/* Page context is included by default and can be removed for this message. */}
       {pageContextOn && (
         <div className="mb-1.5 flex items-center gap-1.5 px-1">
           <button
             type="button"
             onClick={() => setPageContextOn(false)}
+            aria-label="Remove page context"
+            aria-pressed={pageContextOn}
             title="Remove page context from this message"
-            className="focus-ring inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/25 bg-primary/[0.08] px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-primary/45 hover:bg-primary/[0.12]"
+            className="focus-ring group inline-flex max-w-full items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.08] py-1 pl-2.5 pr-1.5 text-[11px] font-medium text-primary transition-colors hover:border-primary/45 hover:bg-primary/[0.12]"
           >
             <Globe2 size={13} className="shrink-0" />
             <span className="truncate">Current page</span>
-            <X size={12} className="shrink-0 opacity-70" />
+            <span className="hidden text-[10px] text-muted-foreground min-[360px]:inline">Included</span>
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full text-primary/70 transition-colors group-hover:bg-primary/10">
+              <X size={12} />
+            </span>
           </button>
         </div>
       )}
@@ -118,6 +122,8 @@ export function Input({ onSend, disabled, isThinking, onStop, placeholder }: Inp
                   onClick={() => setPageContextOn((v) => !v)}
                   disabled={disabled}
                   title={pageContextOn ? "Remove page context" : "Ask about this page"}
+                  aria-label={pageContextOn ? "Remove page context" : "Add page context"}
+                  aria-pressed={pageContextOn}
                   className={cn(
                     "focus-ring flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-150 hover:bg-hover-2 active:bg-secondary disabled:cursor-not-allowed disabled:opacity-40",
                     pageContextOn
