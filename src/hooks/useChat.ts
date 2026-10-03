@@ -104,7 +104,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   }, [appendMessage]);
 
   const sendMessage = useCallback(
-    async (text: string, forcePageContext = false) => {
+    async (text: string, forcePageContext?: boolean) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
@@ -116,7 +116,6 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
         createdAt: Date.now(),
       };
       const current = conversationsRef.current.get(convo.id) ?? convo.messages;
-      const isFirstMessage = current.length === 0;
       const nextMessages = [...current, userMessage];
       conversationsRef.current.set(convo.id, nextMessages);
 
@@ -129,12 +128,11 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
       activeConvoIdRef.current = convo.id;
 
       try {
-        // Automatically attach the active tab's content as context when the
-        // user asks about the page (or on the first message, so follow-ups
-        // keep working). The bubble keeps the raw text; only the payload
-        // sent to the AI carries the page context.
+        // The composer toggle controls whether page content is attached.
+        // Explicit page questions still work for callers without a toggle.
         const pageIntent = PAGE_INTENT_RE.test(trimmed);
-        const shouldLoadPage = isFirstMessage || pageIntent || forcePageContext;
+        const shouldUsePageContext = forcePageContext ?? pageIntent;
+        const shouldLoadPage = shouldUsePageContext;
         if (shouldLoadPage) {
           setStatusNote("Reading this page…");
           const pageResult = await getPageContent();
@@ -161,7 +159,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
         }
 
         const pageContext = pageContextByConversationRef.current.get(convo.id);
-        const messagesToSend = pageContext
+        const messagesToSend = shouldUsePageContext && pageContext
           ? [...current, { ...userMessage, content: buildContextualMessage(trimmed, pageContext) }]
           : nextMessages;
         await sendChat(messagesToSend, convo.id);
