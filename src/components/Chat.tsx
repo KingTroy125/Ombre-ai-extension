@@ -132,7 +132,7 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
         </div>
       ) : (
         <LandingView
-          onAskPage={() => handleSend("Summarize this page", true)}
+          onAskPage={() => handleSend("Help me understand this page and its key points", true)}
           page={page}
           setPage={setPage}
           hasApiKey={hasApiKey}
@@ -189,7 +189,7 @@ function LandingView({
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
           <FileText size={15} className="feather" />
         </span>
-        <span className="truncate">Help me understand this page and its key points</span>
+        <span className="truncate">Summarize this page</span>
       </button>
 
       {/* Page-indicator dots */}
