@@ -50,7 +50,8 @@ export type RuntimeEvent =
   | { type: "TOQAN_ERROR"; error: string; conversationId?: string; conversationIdForContext?: string }
   | { type: "TOQAN_OVERLOADED"; message: string; conversationId: string }
   | { type: "TOQAN_CONTEXT_RESPONSE"; query: string; response: string }
-  | { type: "TOQAN_CONTEXT_ERROR"; error: string };
+  | { type: "TOQAN_CONTEXT_ERROR"; error: string }
+  | { type: "OMBRE_TAB_CHANGED"; tabId?: number };
 
 export interface PageContent {
   title: string;
