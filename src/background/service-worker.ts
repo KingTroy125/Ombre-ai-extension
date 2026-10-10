@@ -358,21 +358,36 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
 
   if (message.type === "OMBRE_GET_PAGE_CONTENT") {
     // Must return true so the channel stays open until the async response fires.
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const tab = tabs[0];
+    void (async () => {
+      let tab: chrome.tabs.Tab | undefined;
+      try {
+        const lastFocused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        if (lastFocused[0]?.id) tab = lastFocused[0];
+      } catch {}
+      if (!tab) {
+        try {
+          const current = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (current[0]?.id) tab = current[0];
+        } catch {}
+      }
+      if (!tab) {
+        try {
+          const allActive = await chrome.tabs.query({ active: true });
+          tab = allActive[0];
+        } catch {}
+      }
+
       if (!tab?.id) {
         sendResponse({ success: false, error: "No active tab found." });
         return;
       }
-      // chrome.scripting.executeScript is available in MV3 with the
-      // "scripting" permission — it never needs the content script to be
-      // pre-injected, so it works on any page.
+
       try {
         const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: () => ({
-            title: document.title,
-            url: location.href,
+            title: document.title || "",
+            url: location.href || "",
             // Grab innerText of the body; strip excessive whitespace and cap length.
             text: (document.body?.innerText ?? "")
               .replace(/[ \t]{2,}/g, " ")
@@ -382,16 +397,51 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
           }),
         });
         const result = results?.[0]?.result as { title: string; url: string; text: string } | undefined;
-        if (result) {
+        if (result && (result.title || result.url || result.text)) {
           sendResponse({ success: true, data: result });
         } else {
-          sendResponse({ success: false, error: "Could not read page content." });
+          sendResponse({
+            success: true,
+            data: {
+              title: tab.title || "Current page",
+              url: tab.url || "",
+              text: "",
+            },
+          });
         }
       } catch (err) {
-        sendResponse({ success: false, error: (err as Error).message || "Script execution failed." });
+        if (tab.url) {
+          sendResponse({
+            success: true,
+            data: {
+              title: tab.title || "Current page",
+              url: tab.url,
+              text: "",
+            },
+          });
+        } else {
+          sendResponse({ success: false, error: (err as Error).message || "Script execution failed." });
+        }
       }
-    });
+    })();
     return true; // keep channel open for async sendResponse
+  }
+});
+
+// Broadcast tab changes to active extension views (side panel / popup)
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  chrome.runtime.sendMessage({
+    type: "OMBRE_TAB_CHANGED",
+    tabId: activeInfo.tabId,
+  }).catch(() => {});
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (tab.active && (changeInfo.status === "complete" || changeInfo.url || changeInfo.title)) {
+    chrome.runtime.sendMessage({
+      type: "OMBRE_TAB_CHANGED",
+      tabId,
+    }).catch(() => {});
   }
 });
 
