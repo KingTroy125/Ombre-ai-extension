@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Ombre AI Assistant",
-  "description": "AI assistant browser extension powered by the Toqan API — popup chat, side panel, and page-context Q&A.",
-  "version": "1.2.0",
+  "description": "AI assistant browser extension.",
+  "version": "1.2.1",
   "icons": {
     "16": "public/icons/icon16.png",
     "48": "public/icons/icon48.png",
