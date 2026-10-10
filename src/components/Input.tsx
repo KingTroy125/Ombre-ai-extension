@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp, FileText, Globe2, Mic, Square, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useSpeechToText } from "../hooks/useSpeechToText";
@@ -49,22 +49,78 @@ export function Input({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const baseValueRef = useRef("");
 
-  // Retrieve current active tab context (title, URL, domain)
-  useEffect(() => {
-    let active = true;
+  const refreshPageInfo = useCallback(() => {
     void getPageContent().then((res) => {
-      if (!active || !res.success || !res.data) return;
-      try {
-        const domain = new URL(res.data.url).hostname.replace(/^www\./, "");
-        setPageInfo({ title: res.data.title, url: res.data.url, domain });
-      } catch {
-        setPageInfo({ title: res.data.title, url: res.data.url, domain: res.data.url });
+      if (res.success && res.data) {
+        try {
+          const domain = new URL(res.data.url).hostname.replace(/^www\./, "");
+          setPageInfo({ title: res.data.title, url: res.data.url, domain });
+        } catch {
+          setPageInfo({ title: res.data.title, url: res.data.url, domain: res.data.url });
+        }
+      } else {
+        setPageInfo(null);
       }
     });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  // Update current page context whenever the user switches tabs, navigates, or focuses the panel
+  useEffect(() => {
+    refreshPageInfo();
+
+    // 1. Direct chrome.tabs events (fires when user switches tab or navigates)
+    const handleActivated = () => {
+      refreshPageInfo();
+    };
+    const handleUpdated = (_tabId: number, changeInfo: { status?: string; url?: string; title?: string }) => {
+      if (changeInfo.status === "complete" || changeInfo.url || changeInfo.title) {
+        refreshPageInfo();
+      }
+    };
+
+    if (typeof chrome !== "undefined" && chrome.tabs) {
+      try {
+        chrome.tabs.onActivated?.addListener(handleActivated);
+        chrome.tabs.onUpdated?.addListener(handleUpdated);
+      } catch {}
+    }
+
+    // 2. Broadcast from background service worker
+    const handleMessage = (msg: unknown) => {
+      if (msg && typeof msg === "object" && (msg as { type?: string }).type === "OMBRE_TAB_CHANGED") {
+        refreshPageInfo();
+      }
+    };
+    if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+      try {
+        chrome.runtime.onMessage.addListener(handleMessage);
+      } catch {}
+    }
+
+    // 3. Window focus & visibility (user switches window/tab and returns to panel)
+    const handleFocus = () => refreshPageInfo();
+    const handleVisibility = () => {
+      if (!document.hidden) refreshPageInfo();
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      if (typeof chrome !== "undefined" && chrome.tabs) {
+        try {
+          chrome.tabs.onActivated?.removeListener(handleActivated);
+          chrome.tabs.onUpdated?.removeListener(handleUpdated);
+        } catch {}
+      }
+      if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+        try {
+          chrome.runtime.onMessage.removeListener(handleMessage);
+        } catch {}
+      }
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [refreshPageInfo]);
 
   const autoresize = () => {
     const el = textareaRef.current;
