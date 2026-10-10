@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowDown, FileText } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowDown } from "lucide-react";
 import type { Conversation } from "../lib/types";
 import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";
@@ -20,27 +20,40 @@ interface ChatProps {
   onAddTextSent?: () => void;
 }
 
-export function Chat({ conversation, onUpdateConversation, onEnsureConversation, onOpenNote: _onOpenNote, pendingAddText, onAddTextSent }: ChatProps) {
+export function Chat({
+  conversation,
+  onUpdateConversation,
+  onEnsureConversation,
+  onOpenNote: _onOpenNote,
+  pendingAddText,
+  onAddTextSent,
+}: ChatProps) {
   const { sendMessage, stopGeneration, isThinking, statusNote } = useChat({
     conversation,
     onUpdateConversation,
     onEnsureConversation,
   });
   const { hasApiKey, loaded } = useSettings();
-  const [page, setPage] = useState(0);
 
   const { containerRef, isPinned, hasUnseenContent, scrollToBottom, anchorToElement, onContentChanged } =
     useStickyScroll();
 
   const messages = conversation?.messages ?? [];
   const hasMessages = messages.length > 0;
+  const lastContent = messages[messages.length - 1]?.content;
 
-  // Tracks whether the next render was caused by *this tab* sending a
-  // message (turn-anchor it near the top) vs. loading history, switching
-  // conversations, or an incoming reply (just follow sticky-scroll as normal).
-  const pendingAnchorId = useRef<string | null>(null);
+  // Tracks the last seen message/conversation so we can tell whether the
+  // next render was caused by *this tab* sending a message (turn-anchor it
+  // near the top) vs. loading history or switching conversations.
   const lastMessageId = useRef<string | null>(null);
   const lastConversationId = useRef<string | null>(null);
+
+  // Keep latest callbacks in refs so the "Add to chat" effect only fires
+  // once per pending text, even if these functions change identity.
+  const sendRef = useRef(sendMessage);
+  const consumedRef = useRef(onAddTextSent);
+  sendRef.current = sendMessage;
+  consumedRef.current = onAddTextSent;
 
   const handleSend = (text: string, usePageContext?: boolean) => {
     sendMessage(text, usePageContext);
@@ -48,11 +61,10 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
 
   // Send pending text from "Add to chat" (selection toolbar)
   useEffect(() => {
-    if (pendingAddText) {
-      sendMessage(pendingAddText);
-      onAddTextSent?.();
-    }
-  }, [pendingAddText, sendMessage, onAddTextSent]);
+    if (!pendingAddText) return;
+    sendRef.current(pendingAddText);
+    consumedRef.current?.();
+  }, [pendingAddText]);
 
   const handleRate = (messageId: string, rating: "up" | "down") => {
     if (!conversation) return;
@@ -77,14 +89,11 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
       return;
     }
 
-    const isFreshUserTurn = latest.role === "user";
-    if (isFreshUserTurn) {
-      pendingAnchorId.current = latest.id;
-      // Wait a frame for the new bubble to actually be in the DOM before anchoring it.
+    if (latest.role === "user") {
+      // Wait a frame for the new bubble to be in the DOM before anchoring it.
       requestAnimationFrame(() => {
         const el = containerRef.current?.querySelector<HTMLElement>(`[data-msg-id="${latest.id}"]`);
         if (el) anchorToElement(el);
-        pendingAnchorId.current = null;
       });
     } else {
       onContentChanged();
@@ -92,8 +101,14 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, conversation?.id]);
 
-  // The thinking indicator appearing/disappearing is content too — follow
-  // the same sticky rule (only auto-scroll if already pinned).
+  // Follow streaming updates to the last message (length stays the same
+  // while its content grows). Only scrolls if already pinned.
+  useEffect(() => {
+    if (lastContent !== undefined) onContentChanged();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastContent]);
+
+  // The thinking indicator appearing/disappearing is content too.
   useEffect(() => {
     onContentChanged();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,13 +146,7 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
           )}
         </div>
       ) : (
-        <LandingView
-          onAskPage={() => handleSend("Help me understand this page and its key points", true)}
-          page={page}
-          setPage={setPage}
-          hasApiKey={hasApiKey}
-          settingsLoaded={loaded}
-        />
+        <LandingView hasApiKey={hasApiKey} settingsLoaded={loaded} />
       )}
 
       <Input
@@ -151,22 +160,15 @@ export function Chat({ conversation, onUpdateConversation, onEnsureConversation,
 }
 
 function LandingView({
-  onAskPage,
-  page,
-  setPage,
   hasApiKey,
   settingsLoaded,
 }: {
-  onAskPage: () => void;
-  page: number;
-  setPage: (n: number) => void;
   hasApiKey: boolean;
   settingsLoaded: boolean;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-5 sm:px-6 sm:py-8">
-      {/* Agent activation block */}
-      <div className="mb-6 flex flex-col items-center gap-3 text-center">
+      <div className="flex flex-col items-center gap-3 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl">
           <img src={avatarUrl} alt="Ombre AI" className="h-11 w-11" draggable={false} />
         </div>
@@ -175,33 +177,9 @@ function LandingView({
           <p className="mt-1 max-w-xs text-[13px] text-muted-foreground">
             {settingsLoaded && !hasApiKey
               ? "Add your Toqan API key in Settings to start chatting."
-              : "Ask a question or start with the current page."}
+              : "Ask a question to get started."}
           </p>
         </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onAskPage}
-        disabled={!hasApiKey}
-        className="focus-ring group/page mb-6 inline-flex max-w-full items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
-          <FileText size={15} className="feather" />
-        </span>
-        <span className="truncate">Summarize this page</span>
-      </button>
-
-      {/* Page-indicator dots */}
-      <div className="flex items-center gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <button
-            key={i}
-            onClick={() => setPage(i)}
-            className={`h-1.5 rounded-full transition-all ${page === i ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/40"
-              }`}
-          />
-        ))}
       </div>
     </div>
   );
