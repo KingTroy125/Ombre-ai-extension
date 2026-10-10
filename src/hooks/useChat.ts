@@ -139,7 +139,9 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
           setStatusNote(null);
           if (pageResult.success) {
             pageContextByConversationRef.current.set(convo.id, pageResult.data);
-          } else if (pageIntent) {
+          } else {
+            pageContextByConversationRef.current.delete(convo.id);
+            if (pageIntent) {
             // The user explicitly asked about the page but the tab can't be
             // read (e.g. chrome:// pages, the web store, blank tabs). Say so
             // locally instead of letting the AI guess blindly.
@@ -157,6 +159,7 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
             return;
           }
         }
+      }
 
         const pageContext = pageContextByConversationRef.current.get(convo.id);
         const messagesToSend = shouldUsePageContext && pageContext
