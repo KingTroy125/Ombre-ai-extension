@@ -8,11 +8,11 @@ const hasRuntime = typeof chrome !== "undefined" && !!chrome.runtime?.id;
  * Resolves once the background has ACKed receipt — the actual reply comes
  * back asynchronously through onReply/onError/onOverloaded below.
  */
-export async function sendChat(messages: ChatMessage[], conversationId: string): Promise<void> {
+export async function sendChat(messages: ChatMessage[], conversationId: string, requestId?: string): Promise<void> {
   if (!hasRuntime) {
     // Local dev fallback outside the extension shell, so the UI is still testable.
     window.dispatchEvent(
-      new CustomEvent("toqan:mock-reply", { detail: { conversationId } })
+      new CustomEvent("toqan:mock-reply", { detail: { conversationId, requestId } })
     );
     return;
   }
@@ -20,6 +20,7 @@ export async function sendChat(messages: ChatMessage[], conversationId: string):
     type: "TOQAN_CHAT",
     messages,
     conversationId,
+    requestId,
   });
 }
 
@@ -29,12 +30,12 @@ export async function sendChat(messages: ChatMessage[], conversationId: string):
  * extension shell there is no worker to stop — just mirror the event so
  * local tooling can react.
  */
-export function stopChat(conversationId?: string): void {
+export function stopChat(conversationId?: string, requestId?: string): void {
   if (!hasRuntime) {
-    window.dispatchEvent(new CustomEvent("toqan:mock-stop", { detail: { conversationId } }));
+    window.dispatchEvent(new CustomEvent("toqan:mock-stop", { detail: { conversationId, requestId } }));
     return;
   }
-  chrome.runtime.sendMessage({ type: "TOQAN_STOP", conversationId });
+  chrome.runtime.sendMessage({ type: "TOQAN_STOP", conversationId, requestId }).catch(() => {});
 }
 
 export function pingBackground(): Promise<boolean> {
