@@ -14,13 +14,13 @@ import {
   PanelLeftOpen as IconSidebarOpen,
   Pencil as IconEditBig,
   Plus as IconPlusMedium,
-  Popsicle as IconPopsicle2,
   Search as IconMagnifyingGlass,
   Settings as IconSettingsGear1,
   UserPlus as IconUserAdd,
   X as IconCrossSmall,
 } from "lucide-react";
 
+import { BlobAvatar } from "./BlobAvatar";
 import GlideMenu from "./primitives/GlideMenu";
 
 import type { Conversation } from "../lib/types";
@@ -575,8 +575,8 @@ export function Sidebar({
                 "hover:bg-hover-2 active:scale-[0.99]",
               )}
             >
-              <span className="flex size-5 shrink-0 items-center justify-center text-ink">
-                <IconPopsicle2 size={17} strokeWidth={ICON_STROKE} />
+              <span className="flex size-5 shrink-0 items-center justify-center">
+                <BlobAvatar size={20} className="size-5 shrink-0" />
               </span>
 
               <span className="ml-1.5 min-w-0 flex-1 truncate text-[14px] font-medium text-ink-2">
