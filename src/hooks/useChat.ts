@@ -44,14 +44,16 @@ interface UseChatOptions {
 }
 
 export function useChat({ conversation, onUpdateConversation, onEnsureConversation }: UseChatOptions) {
-  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingConvoId, setThinkingConvoId] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const activeConvoIdRef = useRef<string | null>(conversation?.id ?? null);
+  const activeRequestIdRef = useRef<string | null>(null);
+  const stoppedRequestIdsRef = useRef<Set<string>>(new Set());
+  const stoppedConvosRef = useRef<Set<string>>(new Set());
   const conversationsRef = useRef<Map<string, ChatMessage[]>>(new Map());
   const pageContextByConversationRef = useRef<Map<string, PageContent>>(new Map());
-  // Conversations whose generation the user explicitly stopped — late
-  // replies/errors from those runs are dropped instead of appended.
-  const stoppedConvosRef = useRef<Set<string>>(new Set());
+
+  const isThinking = !!thinkingConvoId && (!conversation || thinkingConvoId === conversation.id);
 
   useEffect(() => {
     activeConvoIdRef.current = conversation?.id ?? null;
@@ -72,10 +74,23 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
   );
 
   useEffect(() => {
+    const isStoppedOrStale = (requestId: string | undefined, targetConvoId: string) => {
+      if (requestId) {
+        if (stoppedRequestIdsRef.current.delete(requestId)) return true;
+        if (activeRequestIdRef.current && requestId !== activeRequestIdRef.current) return true;
+      } else if (stoppedConvosRef.current.delete(targetConvoId)) {
+        return true;
+      }
+      return false;
+    };
+
     const unsubscribe = onRuntimeEvent((event) => {
       if (event.type === "TOQAN_REPLY") {
-        if (stoppedConvosRef.current.delete(event.conversationId)) return;
-        setIsThinking(false);
+        if (isStoppedOrStale(event.requestId, event.conversationId)) return;
+        if (!event.requestId || activeRequestIdRef.current === event.requestId) {
+          activeRequestIdRef.current = null;
+        }
+        setThinkingConvoId((prev) => (prev === event.conversationId ? null : prev));
         setStatusNote(null);
         appendMessage(event.conversationId, {
           id: newId(),
@@ -84,12 +99,15 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
           createdAt: Date.now(),
         });
       } else if (event.type === "TOQAN_OVERLOADED") {
-        if (stoppedConvosRef.current.delete(event.conversationId)) return;
+        if (isStoppedOrStale(event.requestId, event.conversationId)) return;
         setStatusNote("Ombre AI is busy — retrying…");
       } else if (event.type === "TOQAN_ERROR") {
         const targetId = event.conversationId ?? activeConvoIdRef.current ?? "";
-        if (stoppedConvosRef.current.delete(targetId)) return;
-        setIsThinking(false);
+        if (isStoppedOrStale(event.requestId, targetId)) return;
+        if (!event.requestId || activeRequestIdRef.current === event.requestId) {
+          activeRequestIdRef.current = null;
+        }
+        setThinkingConvoId((prev) => (prev === targetId ? null : prev));
         setStatusNote(null);
         appendMessage(targetId, {
           id: newId(),
@@ -109,6 +127,13 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
       if (!trimmed) return;
 
       const convo = conversation ?? onEnsureConversation();
+      const requestId = newId();
+      activeRequestIdRef.current = requestId;
+      activeConvoIdRef.current = convo.id;
+
+      // Crucial: Clear any previous stopped state for this conversation so new messages proceed
+      stoppedConvosRef.current.delete(convo.id);
+
       const userMessage: ChatMessage = {
         id: newId(),
         role: "user",
@@ -123,9 +148,8 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
       if (convo.messages.length === 0) patch.title = titleFromMessage(trimmed);
       onUpdateConversation(convo.id, patch);
 
-      setIsThinking(true);
+      setThinkingConvoId(convo.id);
       setStatusNote(null);
-      activeConvoIdRef.current = convo.id;
 
       try {
         // The composer toggle controls whether page content is attached.
@@ -137,37 +161,46 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
           setStatusNote("Reading this page…");
           const pageResult = await getPageContent();
           setStatusNote(null);
+
+          // If cancelled or superseded while reading page, exit early
+          if (activeRequestIdRef.current !== requestId) return;
+
           if (pageResult.success) {
             pageContextByConversationRef.current.set(convo.id, pageResult.data);
           } else {
             pageContextByConversationRef.current.delete(convo.id);
             if (pageIntent) {
-            // The user explicitly asked about the page but the tab can't be
-            // read (e.g. chrome:// pages, the web store, blank tabs). Say so
-            // locally instead of letting the AI guess blindly.
-            const helpMessage: ChatMessage = {
-              id: newId(),
-              role: "assistant",
-              content:
-                "I couldn't read the current tab — extensions can't access browser pages (like settings pages), the web store, or blank tabs. Open a normal webpage and ask again.",
-              createdAt: Date.now(),
-            };
-            const withHelp = [...nextMessages, helpMessage];
-            conversationsRef.current.set(convo.id, withHelp);
-            onUpdateConversation(convo.id, { messages: withHelp });
-            setIsThinking(false);
-            return;
+              // The user explicitly asked about the page but the tab can't be
+              // read (e.g. chrome:// pages, the web store, blank tabs). Say so
+              // locally instead of letting the AI guess blindly.
+              const helpMessage: ChatMessage = {
+                id: newId(),
+                role: "assistant",
+                content:
+                  "I couldn't read the current tab — extensions can't access browser pages (like settings pages), the web store, or blank tabs. Open a normal webpage and ask again.",
+                createdAt: Date.now(),
+              };
+              const withHelp = [...nextMessages, helpMessage];
+              conversationsRef.current.set(convo.id, withHelp);
+              onUpdateConversation(convo.id, { messages: withHelp });
+              setThinkingConvoId(null);
+              activeRequestIdRef.current = null;
+              return;
+            }
           }
         }
-      }
+
+        if (activeRequestIdRef.current !== requestId) return;
 
         const pageContext = pageContextByConversationRef.current.get(convo.id);
         const messagesToSend = shouldUsePageContext && pageContext
           ? [...current, { ...userMessage, content: buildContextualMessage(trimmed, pageContext) }]
           : nextMessages;
-        await sendChat(messagesToSend, convo.id);
+        await sendChat(messagesToSend, convo.id, requestId);
       } catch (err) {
-        setIsThinking(false);
+        if (activeRequestIdRef.current !== requestId) return;
+        setThinkingConvoId(null);
+        activeRequestIdRef.current = null;
         appendMessage(convo.id, {
           id: newId(),
           role: "assistant",
@@ -182,10 +215,13 @@ export function useChat({ conversation, onUpdateConversation, onEnsureConversati
 
   const stopGeneration = useCallback(() => {
     const convoId = activeConvoIdRef.current;
+    const reqId = activeRequestIdRef.current;
+    if (reqId) stoppedRequestIdsRef.current.add(reqId);
     if (convoId) stoppedConvosRef.current.add(convoId);
-    stopChat(convoId ?? undefined);
-    setIsThinking(false);
+    activeRequestIdRef.current = null;
+    setThinkingConvoId(null);
     setStatusNote(null);
+    stopChat(convoId ?? undefined, reqId ?? undefined);
   }, []);
 
   return { sendMessage, stopGeneration, isThinking, statusNote };
