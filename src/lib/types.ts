@@ -35,8 +35,8 @@ export const DEFAULT_SETTINGS: ToqanSettings = {
 
 /** Messages exchanged between UI (popup/sidepanel/content) and the background service worker. */
 export type RuntimeMessage =
-  | { type: "TOQAN_CHAT"; messages: ChatMessage[]; conversationId: string; tabId?: number }
-  | { type: "TOQAN_STOP"; conversationId?: string }
+  | { type: "TOQAN_CHAT"; messages: ChatMessage[]; conversationId: string; requestId?: string; tabId?: number }
+  | { type: "TOQAN_STOP"; conversationId?: string; requestId?: string }
   | { type: "TOQAN_PING" }
   | { type: "OPEN_SETTINGS" }
   | { type: "OMBRE_OPEN_SIDEPANEL" }
@@ -46,9 +46,9 @@ export type RuntimeMessage =
   | { type: "OMBRE_SIDE_PANEL_READY" };
 
 export type RuntimeEvent =
-  | { type: "TOQAN_REPLY"; reply: string; conversationId: string }
-  | { type: "TOQAN_ERROR"; error: string; conversationId?: string; conversationIdForContext?: string }
-  | { type: "TOQAN_OVERLOADED"; message: string; conversationId: string }
+  | { type: "TOQAN_REPLY"; reply: string; conversationId: string; requestId?: string }
+  | { type: "TOQAN_ERROR"; error: string; conversationId?: string; requestId?: string; conversationIdForContext?: string }
+  | { type: "TOQAN_OVERLOADED"; message: string; conversationId: string; requestId?: string }
   | { type: "TOQAN_CONTEXT_RESPONSE"; query: string; response: string }
   | { type: "TOQAN_CONTEXT_ERROR"; error: string }
   | { type: "OMBRE_TAB_CHANGED"; tabId?: number };
