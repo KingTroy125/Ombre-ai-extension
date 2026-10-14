@@ -147,22 +147,47 @@ function extractAnswer(data: any): string | null {
   return null;
 }
 
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(() => {
+      if (signal) signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    if (signal) {
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  });
+}
+
 function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
   timeoutMs = 20000,
   externalSignal?: AbortSignal
 ): Promise<Response> {
+  if (externalSignal?.aborted) {
+    return Promise.reject(new DOMException("The user aborted a request.", "AbortError"));
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  // Combine the per-call timeout with the caller's cancel signal so a
-  // "stop generating" tap tears down in-flight network work immediately.
-  const signal = externalSignal
-    ? typeof AbortSignal.any === "function"
-      ? AbortSignal.any([controller.signal, externalSignal])
-      : controller.signal
-    : controller.signal;
-  return fetch(url, { ...options, signal }).finally(() => clearTimeout(timer));
+
+  let onExternalAbort: (() => void) | undefined;
+  if (externalSignal) {
+    onExternalAbort = () => controller.abort();
+    externalSignal.addEventListener("abort", onExternalAbort, { once: true });
+  }
+
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => {
+    clearTimeout(timer);
+    if (externalSignal && onExternalAbort) {
+      externalSignal.removeEventListener("abort", onExternalAbort);
+    }
+  });
 }
 
 // ── Cancellation registry ─────────────────────────────────────────────────
@@ -171,24 +196,30 @@ function fetchWithTimeout(
 // fetches immediately and deliver no reply/error events afterwards.
 
 interface ActiveRequest {
+  id: string;
+  conversationId: string;
   controller: AbortController;
   cancelled: boolean;
 }
 
 const activeRequests = new Map<string, ActiveRequest>();
 
-function cancelActiveRequests(conversationId?: string) {
-  const targets = conversationId
-    ? [activeRequests.get(conversationId)].filter((r): r is ActiveRequest => !!r)
-    : [...activeRequests.values()];
-  for (const request of targets) {
-    request.cancelled = true;
-    request.controller.abort();
+function cancelActiveRequests(conversationId?: string, requestId?: string) {
+  for (const [convoId, request] of activeRequests.entries()) {
+    const matchConvo = conversationId ? convoId === conversationId : true;
+    const matchReq = requestId ? request.id === requestId : true;
+    if (matchConvo && matchReq) {
+      request.cancelled = true;
+      request.controller.abort();
+    }
   }
 }
 
-function settleActiveRequest(conversationId: string) {
-  activeRequests.delete(conversationId);
+function settleActiveRequest(conversationId: string, request: ActiveRequest) {
+  // Only remove from activeRequests if THIS request is still the active one for this conversation
+  if (activeRequests.get(conversationId) === request) {
+    activeRequests.delete(conversationId);
+  }
   if (activeRequests.size === 0) stopKeepAlive();
 }
 
@@ -267,7 +298,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
     // If this came from a content script, sender.tab.id is set — replies get
     // routed back to that tab in addition to any open popup/sidepanel/options page.
     const originTabId = sender.tab?.id ?? message.tabId;
-    handleChatMessageAsync(message.messages, message.conversationId, originTabId);
+    handleChatMessageAsync(message.messages, message.conversationId, message.requestId, originTabId);
     return false;
   }
 
@@ -307,7 +338,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendRespo
   }
 
   if (message.type === "TOQAN_STOP") {
-    cancelActiveRequests(message.conversationId);
+    cancelActiveRequests(message.conversationId, message.requestId);
     sendResponse({ status: "ok" });
     return false;
   }
@@ -451,32 +482,64 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // ── Async handler broadcasting replies to all extension views ────────────
 
-async function handleChatMessageAsync(messages: ChatMessage[], conversationId: string, tabId?: number) {
+async function handleChatMessageAsync(
+  messages: ChatMessage[],
+  conversationId: string,
+  requestId?: string,
+  tabId?: number
+) {
   startKeepAlive();
+
+  // If a request was already in-flight for this conversation, abort it before starting the new one
+  const existing = activeRequests.get(conversationId);
+  if (existing) {
+    existing.cancelled = true;
+    existing.controller.abort();
+  }
+
   const controller = new AbortController();
-  activeRequests.set(conversationId, { controller, cancelled: false });
+  const currentRequest: ActiveRequest = {
+    id: requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    conversationId,
+    controller,
+    cancelled: false,
+  };
+  activeRequests.set(conversationId, currentRequest);
+
   try {
     const lastUserMessage =
       messages.filter((m) => m.role === "user").map((m) => m.content).pop() || "";
 
     const result = await callToqanAPI(lastUserMessage, controller.signal);
 
-    // The user hit "stop" while we were working — drop everything quietly
+    // The user hit "stop" or this was superseded — drop everything quietly
     // instead of appending a reply/error to a conversation they abandoned.
-    if (controller.signal.aborted) return;
+    if (controller.signal.aborted || currentRequest.cancelled) return;
 
     if (result.overloaded) {
-      deliver({ type: "TOQAN_OVERLOADED", message: result.error!, conversationId }, tabId);
+      deliver(
+        { type: "TOQAN_OVERLOADED", message: result.error!, conversationId, requestId: currentRequest.id },
+        tabId
+      );
     } else if (result.reply) {
-      deliver({ type: "TOQAN_REPLY", reply: result.reply, conversationId }, tabId);
+      deliver(
+        { type: "TOQAN_REPLY", reply: result.reply, conversationId, requestId: currentRequest.id },
+        tabId
+      );
     } else {
-      deliver({ type: "TOQAN_ERROR", error: result.error || "Unknown error", conversationId }, tabId);
+      deliver(
+        { type: "TOQAN_ERROR", error: result.error || "Unknown error", conversationId, requestId: currentRequest.id },
+        tabId
+      );
     }
   } catch (err) {
-    if ((err as Error).name === "AbortError") return;
-    deliver({ type: "TOQAN_ERROR", error: (err as Error).message, conversationId }, tabId);
+    if ((err as Error).name === "AbortError" || controller.signal.aborted || currentRequest.cancelled) return;
+    deliver(
+      { type: "TOQAN_ERROR", error: (err as Error).message, conversationId, requestId: currentRequest.id },
+      tabId
+    );
   } finally {
-    settleActiveRequest(conversationId);
+    settleActiveRequest(conversationId, currentRequest);
   }
 }
 
@@ -525,11 +588,12 @@ async function callToqanAPI(userMessage: string, signal?: AbortSignal): Promise<
     if (signal?.aborted) return { error: "cancelled" };
     if (attempt > 0) {
       console.log(`[Toqan] Retrying (attempt ${attempt}/${MAX_RETRIES}) after overload...`);
-      await new Promise((r) => setTimeout(r, 5000 * attempt));
+      await sleep(5000 * attempt, signal);
       if (signal?.aborted) return { error: "cancelled" };
     }
 
     const singleResult = await callToqanAPIOnce(apiKey, agentId, userMessage, createUrl, signal);
+    if (signal?.aborted) return { error: "cancelled" };
 
     if (singleResult?.reply && !isOverloadMessage(singleResult.reply)) {
       return { reply: singleResult.reply };
@@ -622,7 +686,7 @@ async function pollForResult(
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     if (signal?.aborted) return null;
-    if (i > 0) await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    if (i > 0) await sleep(POLL_INTERVAL_MS, signal);
     if (signal?.aborted) return null;
     keepAlive();
 
@@ -659,6 +723,7 @@ async function pollForResult(
         return { error: String(data.error) };
       }
     } catch (e) {
+      if (signal?.aborted) return null;
       const err = e as Error;
       const msg = err.name === "AbortError" ? "request timed out" : err.message;
       console.warn("[Toqan] Poll error:", msg);
