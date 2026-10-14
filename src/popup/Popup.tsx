@@ -111,7 +111,7 @@ export function Popup() {
               <p className="text-xs text-muted-foreground">
                 Powered by{" "}
                 <a
-                  href=""
+                  href="https://ombre-ai-website.vercel.app/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-purple-500 hover:underline"
