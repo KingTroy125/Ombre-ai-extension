@@ -168,10 +168,11 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* Feather-style icon defaults.
-   No `fill: none` here: lucide already sets fill="none" as an attribute, and a
-   CSS fill would override per-icon fills like the Stop button's filled square. */
-svg.feather {
+/* Icon defaults.
+   Reicon outline glyphs are fill-based, so no stroke is applied here — a CSS
+   stroke would fatten them. Stroke-based reicon icons carry their own
+   stroke="currentColor" / stroke-width inline. */
+svg.feather:not(.reicon) {
   stroke: currentColor;
   stroke-width: 1.75;
   stroke-linecap: round;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Eye, EyeOff, KeyRound, StickyNote } from "lucide-react";
+import { Check, Eye, EyeOff, Key, Stickynote } from "reicon-react";
 import { useSettings } from "../hooks/useSettings";
 
 export function Settings() {
@@ -27,7 +27,7 @@ export function Settings() {
 
       <label className="flex flex-col gap-1.5">
         <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-foreground">
-          <KeyRound size={13} className="feather" /> API key
+          <Key size={13} className="feather" /> API key
         </span>
         <div className="relative">
           <input
@@ -60,7 +60,7 @@ export function Settings() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <StickyNote size={14} className="text-muted-foreground" />
+            <Stickynote size={14} className="text-muted-foreground" />
             <div>
               <div className="text-[13px] font-medium text-foreground">Ask Ombre Quick Notes</div>
               <div className="text-[11.5px] leading-[1.4] text-muted-foreground">

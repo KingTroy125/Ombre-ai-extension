@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown } from "reicon-react";
 import type { Conversation } from "../lib/types";
 import { useChat } from "../hooks/useChat";
 import { useStickyScroll } from "../hooks/useStickyScroll";

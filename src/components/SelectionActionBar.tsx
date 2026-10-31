@@ -12,14 +12,14 @@ import {
   ChevronRight,
   Copy,
   FileText,
-  Languages,
-  Loader2,
-  Pencil,
+  Language,
+  Loader,
+  Pen,
   Scissors,
   Sparkles,
   Wand2,
   X,
-} from "lucide-react";
+} from "reicon-react";
 
 /* ── Types ────────────────────────────────────────────── */
 
@@ -69,8 +69,8 @@ const DEFAULT_PRIMARY: SelectionAction[] = [
 
 const DEFAULT_MORE: SelectionAction[] = [
   { id: "explain", icon: <Sparkles size={13} />, label: "Explain", prompt: "Explain this", busyLabel: "Explaining" },
-  { id: "grammar", icon: <Languages size={13} />, label: "Grammar", prompt: "Fix grammar", busyLabel: "Fixing grammar" },
-  { id: "rephrase", icon: <Pencil size={13} />, label: "Rephrase", prompt: "Rephrase", busyLabel: "Rephrasing" },
+  { id: "grammar", icon: <Language size={13} />, label: "Grammar", prompt: "Fix grammar", busyLabel: "Fixing grammar" },
+  { id: "rephrase", icon: <Pen size={13} />, label: "Rephrase", prompt: "Rephrase", busyLabel: "Rephrasing" },
 ];
 
 /* ── Helpers ──────────────────────────────────────────── */
@@ -205,7 +205,7 @@ export function SelectionActionBar({
           {/* ── Thinking ─────────────────────────────────── */}
           {busy && (
             <span className="inline-flex h-7 items-center gap-1.5 whitespace-nowrap px-2.5 text-[12.5px] text-[#8b8b95]">
-              <Loader2 size={12} className="animate-spin text-[#6c63ff]" />
+              <Loader size={12} className="animate-spin text-[#6c63ff]" />
               <span className="animate-pulse">{busyLabel()}…</span>
             </span>
           )}
@@ -242,7 +242,7 @@ export function SelectionActionBar({
                 title="Try again"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#8b8b95] transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:text-[#e0e0e5]"
               >
-                <Loader2 size={13} />
+                <Loader size={13} />
               </button>
               <button
                 type="button"

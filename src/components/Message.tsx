@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Copy, NotebookPen, ThumbsDown, ThumbsUp, User } from "lucide-react";
+import { AlertTriangle, Check, Copy, NoteAdd, ThumbsDown, ThumbsUp, User } from "reicon-react";
 import type { ChatMessage } from "../lib/types";
 import { createNote, loadNotes, noteTitleFrom, saveNotes } from "../lib/notes";
 import { Markdown } from "./Markdown";
@@ -110,7 +110,7 @@ export function Message({ message, onRate }: MessageProps) {
                 {savedToNotes ? (
                   <Check size={11} className="feather text-emerald-400" />
                 ) : (
-                  <NotebookPen size={11} className="feather" />
+                  <NoteAdd size={11} className="feather" />
                 )}
               </button>
               <button
@@ -121,7 +121,7 @@ export function Message({ message, onRate }: MessageProps) {
                   message.rating === "up" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <ThumbsUp size={11} className="feather" fill={message.rating === "up" ? "currentColor" : "none"} />
+                <ThumbsUp size={11} className="feather" weight={message.rating === "up" ? "Filled" : "Outline"} />
               </button>
               <button
                 onClick={() => handleRate("down")}
@@ -131,7 +131,7 @@ export function Message({ message, onRate }: MessageProps) {
                   message.rating === "down" ? "text-destructive" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <ThumbsDown size={11} className="feather" fill={message.rating === "down" ? "currentColor" : "none"} />
+                <ThumbsDown size={11} className="feather" weight={message.rating === "down" ? "Filled" : "Outline"} />
               </button>
             </div>
           )}

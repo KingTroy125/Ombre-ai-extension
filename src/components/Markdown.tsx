@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "reicon-react";
 import { cn } from "../lib/utils";
 
 function CodeBlock({ className, children }: { className?: string; children: React.ReactNode }) {

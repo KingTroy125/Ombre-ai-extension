@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, FileText, Globe2, Mic, Square, X } from "lucide-react";
+import { ArrowUp, FileText, Globe2, Mic, Stop, X } from "reicon-react";
 import { cn } from "../lib/utils";
 import { useSpeechToText } from "../hooks/useSpeechToText";
 import { getPageContent } from "../api/toqan";
@@ -309,7 +309,7 @@ export function Input({
                   title="Stop"
                   aria-label="Stop generation"
                 >
-                  <Square size={13} className="feather" fill="currentColor" />
+                  <Stop size={13} className="feather" weight="Filled" />
                 </button>
               ) : (
                 <button

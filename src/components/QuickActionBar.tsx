@@ -2,16 +2,16 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  ArrowToDownLeft,
+  Bolt,
   Check,
-  CornerDownLeft,
   FileText,
-  NotebookPen,
+  NoteAdd,
   Plus,
   Search,
   Sparkles,
   X,
-  Zap,
-} from "lucide-react";
+} from "reicon-react";
 import { createNote, loadNotes, notePreview, saveNotes, searchNotes, type Note } from "../lib/notes";
 import { Highlight } from "./Highlight";
 import { cn } from "../lib/utils";
@@ -202,7 +202,7 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
                           >
                             {r.matchedInTitle ? (
                               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                                <NotebookPen size={13} className="feather" />
+                                <NoteAdd size={13} className="feather" />
                               </div>
                             ) : (
                               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
@@ -216,7 +216,7 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
                                 <Highlight text={notePreview(r.note, trimmedQuery)} query={trimmedQuery} />
                               )}
                             </span>
-                            <CornerDownLeft
+                            <ArrowToDownLeft
                               size={12}
                               className={cn(
                                 "feather shrink-0 transition-opacity duration-150",
@@ -266,7 +266,7 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
                   </span>
                 ) : (
                   <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 text-[11.5px] font-semibold text-primary shadow-sm">
-                    <NotebookPen size={12} className="feather" /> Note
+                    <NoteAdd size={12} className="feather" /> Note
                   </span>
                 )}
 
@@ -322,7 +322,7 @@ export function QuickActionBar({ onOpenNote }: QuickActionBarProps) {
           >
             <span className="flex items-center gap-2 rounded-full bg-card/95 px-3.5 py-1.5 backdrop-blur-md transition-colors group-hover:bg-secondary/90">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary to-fuchsia-500 text-white shadow-sm shadow-primary/30 transition-transform group-hover:scale-110">
-                <Zap size={11} className="fill-current" />
+                <Bolt size={11} weight="Filled" />
               </span>
               <span className="text-[12px] font-semibold text-foreground/90 tracking-tight">Quick Action</span>
               <kbd className="flex h-4 min-w-[16px] items-center justify-center rounded border border-white/15 bg-white/10 px-1 font-mono text-[10px] font-medium text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">

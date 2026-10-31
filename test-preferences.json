@@ -1,0 +1,12 @@
+{
+  "tool": "vitest",
+  "gate": null,
+  "additionalTools": [
+    "@testing-library/react",
+    "@testing-library/jest-dom"
+  ],
+  "e2eTool": "none",
+  "testDir": "beside the source",
+  "filePattern": "*.test.tsx",
+  "packageManager": "npm"
+}

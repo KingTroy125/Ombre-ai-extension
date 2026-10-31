@@ -8,17 +8,17 @@ import {
   Check as IconCheckmark1Small,
   ChevronDown as IconChevronDownSmall,
   Home as IconHome,
-  LogOut as IconSignOut,
+  Logout as IconSignOut,
   Notebook as IconNotebook,
-  PanelLeftClose as IconSidebarClose,
-  PanelLeftOpen as IconSidebarOpen,
-  Pencil as IconEditBig,
+  Pen as IconEditBig,
   Plus as IconPlusMedium,
   Search as IconMagnifyingGlass,
   Settings as IconSettingsGear1,
-  UserPlus as IconUserAdd,
+  SidebarLeft as IconSidebarOpen,
+  SidebarRight as IconSidebarClose,
+  UserAdd as IconUserAdd,
   X as IconCrossSmall,
-} from "lucide-react";
+} from "reicon-react";
 
 import { BlobAvatar } from "./BlobAvatar";
 import GlideMenu from "./primitives/GlideMenu";

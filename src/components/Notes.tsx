@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, CornerDownLeft, NotebookPen, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowToDownLeft, Check, Copy, NoteAdd, Plus, Search, Trash2, X } from "reicon-react";
 import { createNote, loadNotes, noteTitleFrom, saveNotes, searchNotes, type Note } from "../lib/notes";
 import { Highlight } from "./Highlight";
 
@@ -139,7 +139,7 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
       <div className="border-b border-border/70 pb-4">
         <div className="flex items-center gap-2">
-          <NotebookPen size={16} className="feather text-primary" />
+          <NoteAdd size={16} className="feather text-primary" />
           <h1 className="text-[16px] font-semibold text-foreground">Notes</h1>
         </div>
         <p className="mt-1 text-[12.5px] text-muted-foreground">
@@ -201,7 +201,7 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
       {visible.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-10 text-center">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15">
-            <NotebookPen size={20} className="feather text-primary" />
+            <NoteAdd size={20} className="feather text-primary" />
           </div>
           <p className="text-[13px] text-muted-foreground">
             {query.trim() ? "No notes match your search." : "No notes yet — quick capture above."}
@@ -276,7 +276,7 @@ export function Notes({ focusNoteId, onClearFocus }: NotesProps) {
                       className="rounded-md p-0.5 text-muted-foreground hover:bg-primary/20 hover:text-primary transition-colors"
                       title={appliedId === note.id ? "Applied to page!" : "Apply note to active field on page"}
                     >
-                      {appliedId === note.id ? <Check size={12} className="feather text-emerald-400" /> : <CornerDownLeft size={12} className="feather" />}
+                      {appliedId === note.id ? <Check size={12} className="feather text-emerald-400" /> : <ArrowToDownLeft size={12} className="feather" />}
                     </button>
                     <button
                       onClick={(e) => handleCopyNote(e, note)}
