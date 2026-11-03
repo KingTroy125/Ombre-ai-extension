@@ -255,15 +255,16 @@ export function initSelectionPopup() {
     .card {
       position: fixed;
       z-index: 2147483647;
-      width: 340px;
+      width: 380px;
+      max-width: calc(100vw - 24px);
       max-height: 380px;
       display: flex;
       flex-direction: column;
-      background: #111111;
+      background: linear-gradient(#111115, #111115) padding-box, linear-gradient(145deg, #6c63ff 0%, rgba(207,77,255,0.42) 48%, rgba(255,255,255,0.12) 100%) border-box;
       color: #f2f2f5;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+      border: 1px solid transparent;
+      border-radius: 16px;
+      box-shadow: 0 14px 42px rgba(0,0,0,0.52), 0 0 28px rgba(108,99,255,0.14);
       opacity: 0;
       transform: translateY(6px) scale(0.97);
       transition: opacity 0.2s ease, transform 0.2s ease;
@@ -272,14 +273,18 @@ export function initSelectionPopup() {
     }
     .card.visible { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 
-    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-    .card-brand { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
-    .card-brand svg.blob-avatar { width: 20px; height: 20px; border-radius: 7px; flex-shrink: 0; }
-    .card-close { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 4px; border-radius: 6px; display: flex; transition: background 0.12s, color 0.12s; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+    .card-heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .card-kicker { color: #92919f; font-size: 9px; font-weight: 700; letter-spacing: 1.15px; line-height: 1; }
+    .card-title-row { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .card-title-row svg.blob-avatar { width: 17px; height: 17px; border-radius: 6px; flex-shrink: 0; }
+    .card-title { overflow: hidden; color: #f1f0f7; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .card-close { cursor: pointer; background: none; border: none; color: #8b8b95; padding: 6px; border-radius: 7px; display: flex; transition: background 0.12s, color 0.12s; }
     .card-close:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
+    .card-close:focus-visible, .card-action:focus-visible { outline: 2px solid #a69fff; outline-offset: 2px; }
     .card-close svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
 
-    .card-body { flex: 1; overflow-y: auto; padding: 12px; font-size: 12.5px; line-height: 1.65; }
+    .card-body { flex: 1; overflow-y: auto; padding: 17px 18px 19px; font-size: 13px; line-height: 1.7; color: #e8e7ee; }
     .card-body p { margin: 0 0 8px; }
     .card-body p:last-child { margin-bottom: 0; }
     .card-body ul, .card-body ol { margin: 4px 0 8px; padding-left: 18px; }
@@ -321,13 +326,14 @@ export function initSelectionPopup() {
       .thinking-pixel, .thinking-label { animation: none !important; }
     }
 
-    .card-footer { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
-    .card-action { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; border: none; background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 500; padding: 7px 8px; border-radius: 8px; cursor: pointer; transition: background 0.12s, transform 0.12s; }
+    .card-footer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(8,8,11,0.55); flex-shrink: 0; }
+    .card-action { flex: 1; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(255,255,255,0.08); background: #1c1c20; color: #e6e6ea; font-size: 12px; font-weight: 600; padding: 7px 10px; border-radius: 9px; cursor: pointer; transition: background 0.12s, transform 0.12s, border-color 0.12s; }
     .card-action:disabled { cursor: default; opacity: 0.85; }
-    .card-action:hover { background: #26262b; }
+    .card-action:hover { background: #26262b; border-color: rgba(255,255,255,0.15); }
     .card-action:active { transform: scale(0.97); }
-    .card-action.primary { background: #6c63ff; color: #fff; }
+    .card-action.primary { border-color: transparent; background: #6c63ff; color: #fff; box-shadow: 0 3px 12px rgba(108,99,255,0.24); }
     .card-action.primary:hover { background: #7d75ff; }
+    .card-action.save-note { color: #e6e6ea; }
     .card-action svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
     ::-webkit-scrollbar { width: 5px; }
@@ -486,13 +492,16 @@ export function initSelectionPopup() {
   card.className = "card";
   card.innerHTML = `
     <div class="card-header">
-      <div class="card-brand">${BLOB_AVATAR_SVG} Ombre AI</div>
-      <button class="card-close" aria-label="Close" title="Close">
+      <div class="card-heading">
+        <div class="card-kicker">SUGGESTION</div>
+        <div class="card-title-row">${BLOB_AVATAR_SVG}<div class="card-title">Improve</div></div>
+      </div>
+      <button class="card-close" type="button" aria-label="Close result" title="Close">
         <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="card-body"></div>
-    <div class="card-footer" style="display:none;"></div>
+    <div class="card-body" aria-live="polite"></div>
+    <div class="card-footer" role="group" aria-label="Suggestion actions" style="display:none;"></div>
   `;
 
   root.append(style, toolbar, moreMenu, card);
@@ -500,6 +509,8 @@ export function initSelectionPopup() {
   const cardBody = card.querySelector(".card-body") as HTMLDivElement;
   const cardFooter = card.querySelector(".card-footer") as HTMLDivElement;
   const cardCloseBtn = card.querySelector(".card-close") as HTMLButtonElement;
+  const cardKicker = card.querySelector(".card-kicker") as HTMLDivElement;
+  const cardTitle = card.querySelector(".card-title") as HTMLDivElement;
 
   let lastSelectedText = "";
   let lastRange: Range | null = null;
@@ -508,6 +519,7 @@ export function initSelectionPopup() {
   let lastFieldStart = 0;
   let lastFieldEnd = 0;
   let activeConversationId: string | null = null;
+  let lastActionKind: "SUGGESTION" | "RESPONSE" = "SUGGESTION";
 
   const moreBtn = toolbar.querySelector(".tbtn.more") as HTMLButtonElement;
 
@@ -691,6 +703,7 @@ export function initSelectionPopup() {
 
   function renderCardLoading(words: string[] = ["Thinking", "Reasoning", "Considering"]) {
     stopCardThinkingCycle?.();
+    cardKicker.textContent = "WORKING";
     cardBody.innerHTML = `<div class="card-loading">${thinkingIndicatorHtml(words)}</div>`;
     cardFooter.style.display = "none";
     stopCardThinkingCycle = startThinkingWordCycle(cardBody, words);
@@ -698,6 +711,7 @@ export function initSelectionPopup() {
 
   function renderCardResult(text: string, isError: boolean) {
     stopCardThinkingCycle?.();
+    cardKicker.textContent = isError ? "NEEDS ATTENTION" : lastActionKind;
     cardBody.innerHTML = isError
       ? `<div class="error-text">${escapeHtml(text)}</div>`
       : renderMarkdownLite(text);
@@ -708,16 +722,16 @@ export function initSelectionPopup() {
     }
     cardFooter.style.display = "flex";
     cardFooter.innerHTML = `
-      <button class="card-action" data-act="copy">
+      <button class="card-action" data-act="copy" type="button" aria-label="Copy suggestion">
         <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
         Copy
       </button>
-      <button class="card-action" data-act="savenote">
+      <button class="card-action save-note" data-act="savenote" type="button" aria-label="Save response to Notes" title="Save response to Notes">
         ${QUICK_PEN_SVG}
-        Save Note
+        Save note
       </button>
       ${lastIsEditable
-        ? `<button class="card-action primary" data-act="replace">
+        ? `<button class="card-action primary" data-act="replace" type="button">
               <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
               Replace
             </button>`
@@ -846,14 +860,26 @@ export function initSelectionPopup() {
   function runAction(action: SelectionAction, customPrompt?: string) {
     if (!lastSelectedText || contextLostFired) return;
     const rect = lastFieldEl ? lastFieldEl.getBoundingClientRect() : lastRange?.getBoundingClientRect();
+    const actionLabels: Record<SelectionAction, string> = {
+      ask: "Ask Ombre",
+      improve: "Improve",
+      rephrase: "Rephrase",
+      addmore: "Expand text",
+      explain: "Explain",
+      shorter: "Make shorter",
+    };
+    const actionLabel = customPrompt ? "Custom edit" : actionLabels[action] ?? "Selection response";
+    lastActionKind = action === "ask" || action === "explain" ? "RESPONSE" : "SUGGESTION";
+    cardTitle.textContent = actionLabel;
     hideToolbar();
 
     card.classList.add("visible");
     requestAnimationFrame(() => {
-      if (rect) positionAbove(card, rect, 340, action === "addmore" ? 210 : 200);
+      if (rect) positionAbove(card, rect, card.offsetWidth, card.offsetHeight);
     });
 
     if (action === "addmore") {
+      cardKicker.textContent = lastActionKind;
       renderCardAddMoreInput();
       return;
     }
